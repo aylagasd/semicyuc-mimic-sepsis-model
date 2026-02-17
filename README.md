@@ -16,7 +16,19 @@ Desarrollar y validar un modelo predictivo para:
 
 [MIMIC-IV](https://pubmed.ncbi.nlm.nih.gov/36596836/)
 
-Base de datos de acceso público desarrollada por el MIT que contiene información clínica de pacientes críticos ingresados en UCI.
+Base de datos desarrollada por el MIT que contiene:
+
++ Datos demográficos
+
++ Variables hemodinámicas
+
++ Resultados analíticos
+
++ Medicación administrada
+
++ Eventos clínicos
+
++ Datos temporales de UCI
 
 ## Estrategia metodológica
 
