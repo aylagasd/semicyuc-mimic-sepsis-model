@@ -1,1 +1,33 @@
 
+semicyuc-sepsis-model/
+│
+├── README.md
+├── LICENSE
+├── .gitignore
+│
+├── docs/
+│   ├── protocol.md
+│   ├── sepsis_definition.md
+│   ├── variable_dictionary.md
+│   └── modeling_strategy.md
+│
+├── src/
+│   ├── data_processing/
+│   ├── feature_engineering/
+│   ├── modeling/
+│   ├── evaluation/
+│   └── utils/
+│
+├── notebooks/
+│   ├── 01_data_extraction.ipynb
+│   ├── 02_feature_engineering.ipynb
+│   └── 03_model_training.ipynb
+│
+├── config/
+│   └── config.yaml
+│
+├── models/
+│
+└── reports/
+    ├── figures/
+    └── results/
