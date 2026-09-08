@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+.venv/
+.env
+.env.*
+!*.env.example
+config/*.env
+!config/*.env.example
+data/
+.netrc
+.tools/
+.micromamba/
+.jupyter/
+.cache/

@@ -1,0 +1,20 @@
+name: semicyuc-mimic-sepsis
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10
+  - pip
+  - jupyterlab>=4,<5
+  - matplotlib>=3.8,<4
+  - r-base>=4.3,<5
+  - r-irkernel
+  - r-renv
+  - r-ggplot2>=3.5
+  - r-dbi
+  - r-dplyr
+  - r-tidyr
+  - r-readr
+  - r-scales
+  - r-here
+  - pip:
+      - -e .[analysis,dev]
