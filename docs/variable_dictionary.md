@@ -16,7 +16,15 @@ Each variable includes:
 - Time handling
 - Preprocessing notes
 
-All definitions are reproducible via SQL extraction and Python feature engineering scripts.
+The tables below are a candidate dictionary. The currently implemented initial
+subset is the ten-variable list in `config/features.json`; variables not in
+that file must not be assumed to exist in the modeling matrix.
+
+All implemented definitions are reproducible through the Python extraction and
+feature-engineering modules. Vital signs use `charttime`. Laboratory values
+are linked to the ICU stay using specimen `charttime` but become predictors
+only at `storetime`. Aggregation windows are left-closed and right-open:
+`[L-W,L)`, so a value at the landmark is excluded.
 
 ---
 
@@ -313,7 +321,6 @@ Final modeling dataset columns:
 # Current Version
 
 v0.2 – Feature Definition Phase
-
 
 
 

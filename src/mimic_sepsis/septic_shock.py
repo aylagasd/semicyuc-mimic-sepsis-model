@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pandas as pd
 
 
@@ -82,7 +84,8 @@ def build_septic_shock_labels(
     rows = []
     for sepsis in sepsis_stays.itertuples(index=False):
         t0 = pd.to_datetime(sepsis.t0)
-        lower, upper = t0 - pd.Timedelta(hours=association_hours), t0 + pd.Timedelta(hours=association_hours)
+        association = timedelta(hours=association_hours)
+        lower, upper = t0 - association, t0 + association
         labs = lactates.loc[
             lactates["subject_id"].eq(sepsis.subject_id)
             & lactates["hadm_id"].eq(sepsis.hadm_id)
@@ -95,7 +98,7 @@ def build_septic_shock_labels(
             & pd.to_datetime(vasopressors["endtime"]).ge(lower)
         ]
         candidates = []
-        tolerance = pd.Timedelta(hours=concurrency_hours)
+        tolerance = timedelta(hours=concurrency_hours)
         for lab in labs.itertuples(index=False):
             for infusion in vaso.itertuples(index=False):
                 if lab.lactate_time < infusion.starttime - tolerance or lab.lactate_time > infusion.endtime + tolerance:

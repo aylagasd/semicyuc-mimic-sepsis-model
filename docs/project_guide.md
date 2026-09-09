@@ -8,8 +8,9 @@ pacientes adultos de UCI usando MIMIC-IV. La intención posterior es estudiar
 su transportabilidad a cohortes españolas vinculadas a SEMICYUC.
 
 El proyecto se encuentra todavía en desarrollo metodológico. Ya construye una
-cohorte de prueba, sospecha de infección, SOFA horario y una etiqueta
-retrospectiva Sepsis-3 sobre MIMIC-IV Demo. Todavía no existe un modelo final,
+cohorte adulta auditable, sospecha de infección, SOFA horario, etiquetas
+retrospectivas Sepsis-3/shock, landmarks futuros y matrices temporales sobre
+MIMIC-IV Demo. Todavía no existe un modelo final,
 una validación externa ni autorización para uso asistencial. Nada de este
 repositorio debe emplearse para diagnosticar, tratar o generar alertas clínicas.
 
@@ -132,7 +133,8 @@ flowchart TD
     A --> L[Predictores disponibles antes de cada landmark]
     K --> M[Partición por paciente]
     L --> M
-    M --> N[Desarrollo y validación interna]
+    M --> N[Development y validation]
+    M --> O[Test físicamente separado]
 ```
 
 Las ramas de etiquetas y predictores permanecen separadas hasta construir el
@@ -157,6 +159,8 @@ Los módulos principales son:
 - `antimicrobials.py` e `infection.py`: fármacos, administración y pares;
 - `sofa*.py`: normalización, componentes y composición horaria;
 - `sepsis_labels.py`: enlace temporal entre infección y SOFA;
+- `landmarks.py` y `splits.py`: conjuntos de riesgo, censura y separación por paciente;
+- `feature_sources.py` y `features.py`: disponibilidad y agregación temporal de predictores;
 - `artifacts.py`: Parquet atómico, manifiestos, hashes y validación;
 - `db.py` y `config.py`: conexión de solo lectura al MIMIC remoto.
 
@@ -181,7 +185,9 @@ manifiesto canónico es [`notebooks/README.md`](../notebooks/README.md).
 | 05 | Clasificación y confirmación EMAR de antimicrobianos. |
 | 06 | Disponibilidad de fuentes y umbrales SOFA. |
 | 07 | SOFA horario, Sepsis-3 y resultados agregados. |
-| 08–13 | Análisis, features, modelos, evaluación y sensibilidades; pendientes. |
+| 08 | Auditoría agregada inicial del fenotipo. |
+| 09 | Landmarks, particiones, cobertura y características leakage-safe. |
+| 10–13 | Modelos, evaluación, sensibilidades e informe; pendientes. |
 
 Python se usa para datos y modelos. R y `ggplot2` constituyen el estándar de
 las figuras analíticas y publicables. El notebook 07 incluye una comparación
@@ -224,7 +230,9 @@ data/derived/sofa/<run_id>/
 ├── 00_cohort/
 ├── 20_components/
 ├── 30_score/
-└── 40_labels/
+├── 40_labels/
+├── 50_landmarks/   # un artefacto por target y partición
+└── 60_features/    # matrices predictoras sin outcomes
 ```
 
 Para reanudar sin recalcular artefactos válidos:
@@ -245,7 +253,7 @@ Desde la raíz del repositorio:
 jupyter lab
 ```
 
-Se abren los notebooks en orden 00–07. Deben ejecutarse desde un kernel limpio;
+Se abren los notebooks en orden 00–09. Deben ejecutarse desde un kernel limpio;
 los archivos versionados no conservan outputs ni datos clínicos embebidos.
 
 ## 9. Conexión al MIMIC-IV completo

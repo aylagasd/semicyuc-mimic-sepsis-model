@@ -11,14 +11,18 @@ The primary estimand is risk within 6 hours at each eligible hourly landmark. Se
 - Begin landmarks after a minimum 6-hour ICU observation period; generate them hourly until the earliest of outcome onset, ICU discharge/death, or end of available data.
 - A landmark at time `L` is eligible only if the patient is in ICU, has sufficient lookback availability, and has not met the target by `L`.
 - Primary predictor lookback: `[L - 24 h, L)`. Secondary windows: 6 and 12 hours. Static features use only information available by `L`.
-- Outcome interval for horizon `H`: `[L, L + H)`. Events after ICU discharge are not primary outcomes; discharge/death before `L+H` creates competing/censoring considerations and is reported.
+- Outcome interval for horizon `H`: `(L, L + H]`. An event exactly at `L` is
+  prevalent and removes that landmark; an event exactly at `L+H` counts.
+  Events after ICU discharge are not primary outcomes. Discharge before `L+H`
+  without an observed event yields a censored/nullable label, never a control;
+  an event observed before early discharge remains positive.
 - To reduce dominance by long stays, retain all hourly landmarks with patient-level weighting or sample one/multiple landmarks under a prespecified scheme. Compare with one-landmark-per-stay analyses.
 
 The index `L` is not selected retrospectively relative to onset for controls. Case-control sampling, if used for computation, occurs only within risk sets and uses sampling weights so predicted probabilities and calibration can be recovered.
 
 ## 3. Predictors and feature timing
 
-Candidate features are defined in the versioned variable dictionary. For repeated measurements, compute count, missing indicator, first/last, minimum, maximum, mean/median, standard deviation, slope and time since last measurement over prespecified windows where clinically meaningful. Normalize units before aggregation and clip/winsorize only using training-set rules.
+Candidate features are defined in the versioned variable dictionary. For repeated measurements, compute count, missing indicator, last, minimum, maximum, mean, sample standard deviation, slope and time since last measurement over prespecified windows where clinically meaningful. The initial implemented matrix is declared in `config/features.json`. Laboratory values become available at `storetime`, not retrospectively at specimen `charttime`. Normalize units before aggregation and clip/winsorize only using training-set rules.
 
 SOFA and its components may be evaluated in an explicit secondary model but are excluded from the parsimonious primary model if their inclusion makes the endpoint tautological. Treatment variables require special scrutiny because they can encode clinician recognition rather than underlying physiology.
 
@@ -120,9 +124,10 @@ Subgroups with few events are reported descriptively with uncertainty; no unsupp
 
 - [ ] Freeze primary population rule (first stay/admission versus all stays).
 - [ ] Confirm whether a valid cross-patient temporal ordering exists for the installed MIMIC-IV release.
-- [ ] Freeze primary 6-hour horizon, 24-hour lookback and landmark frequency.
+- [x] Freeze primary 6-hour horizon, 24-hour lookback, hourly landmarks and
+  outcome boundary `(L,L+H]` in `config/landmarks.json`.
 - [ ] Define minimum predictor set, transforms and whether SOFA/treatments enter the primary model.
 - [ ] Select landmark weighting/sampling and competing-event strategy.
 - [ ] Perform formal sample-size calculation after phenotype counts are available.
 - [ ] Define actionable thresholds and the intended clinical response before decision-curve interpretation.
-- [ ] Freeze locked-test access rules and analysis plan.
+- [x] Freeze locked-test access rules and start the append-only access log in `docs/test_access_log.md`.

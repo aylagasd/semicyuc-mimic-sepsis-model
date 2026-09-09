@@ -129,9 +129,8 @@ landmark `L` y horizonte `H`:
   `L` están prohibidos aunque confirmen retrospectivamente la etiqueta;
 - el split se realiza por `subject_id` antes de cualquier ajuste aprendido.
 
-La frontera del resultado debe congelarse junto al generador de landmarks. Si
-se adopta `[L, L + H)` en lugar de `(L, L + H]`, debe cambiarse en ambos sitios
-y en los tests; nunca pueden coexistir convenciones distintas.
+La frontera está congelada junto al generador en `config/landmarks.json`. La
+convención `[L, L + H)` no puede coexistir en artefactos ni tests.
 
 Una evaluación de alerta retrospectiva reportará tanto anticipación respecto a
 `t0` como respecto a `label_available_at`. La primera estima anticipación

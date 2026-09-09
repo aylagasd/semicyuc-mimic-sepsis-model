@@ -1,0 +1,12 @@
+{
+  "group_key": "subject_id",
+  "method": "patient_grouped_random",
+  "proportions": {
+    "development": 0.7,
+    "test": 0.15,
+    "validation": 0.15
+  },
+  "schema_version": 1,
+  "seed": 20260909,
+  "test_locked": true
+}

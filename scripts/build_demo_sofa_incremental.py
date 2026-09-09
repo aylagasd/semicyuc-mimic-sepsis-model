@@ -23,13 +23,18 @@ from mimic_sepsis.antimicrobials import (
     load_antimicrobial_rules,
 )
 from mimic_sepsis.artifacts import ArtifactStore, ArtifactValidationError
+from mimic_sepsis.cohort import StayPolicy, build_adult_icu_cohort
+from mimic_sepsis.feature_sources import normalize_lab_feature_events, normalize_vital_events
+from mimic_sepsis.features import build_numeric_feature_matrix
 from mimic_sepsis.infection import pair_antibiotics_and_cultures
+from mimic_sepsis.landmarks import build_multiple_horizons
 from mimic_sepsis.sepsis_labels import build_sepsis_episodes, first_sepsis_episode_per_stay
 from mimic_sepsis.septic_shock import (
     build_septic_shock_labels,
     normalize_lactate,
     normalize_vasopressor_intervals,
 )
+from mimic_sepsis.splits import patient_grouped_split
 from mimic_sepsis.sofa_demo import build_demo_hourly_sofa
 from mimic_sepsis.sofa_hourly import build_icustay_hourly_grid
 
@@ -45,6 +50,10 @@ RAW_TABLES = {
     "outputevents": "icu/outputevents.csv.gz",
     "procedureevents": "icu/procedureevents.csv.gz",
     "labevents": "hosp/labevents.csv.gz",
+}
+COHORT_TABLES = {
+    "patients": "hosp/patients.csv.gz",
+    "admissions": "hosp/admissions.csv.gz",
 }
 INFECTION_TABLES = {
     "prescriptions": "hosp/prescriptions.csv.gz",
@@ -85,6 +94,18 @@ def canonical_config() -> dict:
         ),
         "septic_shock": json.loads(
             (Path(__file__).resolve().parents[1] / "config" / "septic_shock.json")
+            .read_text(encoding="utf-8")
+        ),
+        "landmarks": json.loads(
+            (Path(__file__).resolve().parents[1] / "config" / "landmarks.json")
+            .read_text(encoding="utf-8")
+        ),
+        "splits": json.loads(
+            (Path(__file__).resolve().parents[1] / "config" / "splits.json")
+            .read_text(encoding="utf-8")
+        ),
+        "features": json.loads(
+            (Path(__file__).resolve().parents[1] / "config" / "features.json")
             .read_text(encoding="utf-8")
         ),
     }
@@ -145,7 +166,10 @@ def _valid(
 def read_demo_tables(data_dir: Path, names: Iterable[str] = RAW_TABLES) -> dict[str, pd.DataFrame]:
     tables: dict[str, pd.DataFrame] = {}
     for name in names:
-        path = data_dir / RAW_TABLES[name]
+        paths = RAW_TABLES | COHORT_TABLES
+        if name not in paths:
+            raise ValueError(f"Unknown demo table: {name}")
+        path = data_dir / paths[name]
         if not path.is_file():
             raise FileNotFoundError(
                 f"Missing {path}; run scripts/download_mimic_demo.py first"
@@ -169,20 +193,32 @@ def build_cohort_stage(
     *, data_dir: Path, run_root: Path, config: dict, code_version: str, resume: bool
 ) -> None:
     store = _store(run_root, "00_cohort")
-    if _valid(store, "cohort_stays", config, resume=resume) and _valid(
-        store, "hourly_grid", config, resume=resume
-    ):
+    names = ("cohort_stays", "cohort_audit", "cohort_flow", "hourly_grid")
+    if all(_valid(store, name, config, resume=resume) for name in names):
         return
-    tables = read_demo_tables(data_dir, ("icustays", "chartevents"))
-    stays = tables["icustays"].copy()
-    cohort = stays[
-        ["subject_id", "hadm_id", "stay_id", "intime", "outtime"]
-    ].copy()
+    tables = read_demo_tables(
+        data_dir, ("patients", "admissions", "icustays", "chartevents")
+    )
+    result = build_adult_icu_cohort(
+        tables["patients"], tables["admissions"], tables["icustays"],
+        stay_policy=StayPolicy.FIRST_PER_ADMISSION,
+    )
+    cohort = result.cohort.copy()
     cohort["cohort_included"] = True
-    cohort["exclusion_reason"] = pd.Series(pd.NA, index=cohort.index, dtype="string")
-    grid = build_icustay_hourly_grid(stays, tables["chartevents"])
+    grid = build_icustay_hourly_grid(cohort, tables["chartevents"])
+    flow = pd.DataFrame(
+        {"metric": list(result.flow), "count": list(result.flow.values())}
+    )
     store.write_dataframe(
         "cohort_stays", cohort, data_version=DATA_VERSION,
+        code_version=code_version, config=config,
+    )
+    store.write_dataframe(
+        "cohort_audit", result.audit, data_version=DATA_VERSION,
+        code_version=code_version, config=config,
+    )
+    store.write_dataframe(
+        "cohort_flow", flow, data_version=DATA_VERSION,
         code_version=code_version, config=config,
     )
     store.write_dataframe(
@@ -199,7 +235,12 @@ def build_score_stage(
         return
     cohort_store = _store(run_root, "00_cohort")
     cohort_store.validate("hourly_grid", expected_config=config)
+    cohort = cohort_store.read_dataframe("cohort_stays", expected_config=config)
     tables = read_demo_tables(data_dir)
+    # All downstream SOFA linkage is restricted to the selected study cohort.
+    tables["icustays"] = cohort[
+        ["subject_id", "hadm_id", "stay_id", "intime", "outtime"]
+    ].copy()
     result = build_demo_hourly_sofa(**tables)
 
     component_store = _store(run_root, "20_components")
@@ -285,6 +326,95 @@ def build_label_stage(
         )
 
 
+def build_landmark_stage(
+    *, run_root: Path, config: dict, code_version: str, resume: bool
+) -> None:
+    """Materialize long-format risk sets for both prediction targets."""
+    store = _store(run_root, "50_landmarks")
+    names = tuple(
+        f"{target}_{partition}_landmarks"
+        for target in ("sepsis3", "septic_shock")
+        for partition in ("development", "validation", "test")
+    )
+    if all(_valid(store, name, config, resume=resume) for name in names):
+        return
+    cohort = _store(run_root, "00_cohort").read_dataframe(
+        "cohort_stays", expected_config=config
+    )
+    labels = _store(run_root, "40_labels")
+    sepsis = labels.read_dataframe("sepsis_stays", expected_config=config)
+    shock = labels.read_dataframe("septic_shock_stays", expected_config=config)
+    landmark_config = config["landmarks"]
+    common = {
+        "horizons_hours": tuple(landmark_config["horizons_hours"]),
+        "minimum_observation_hours": landmark_config["minimum_observation_hours"],
+        "landmark_interval_hours": landmark_config["landmark_interval_hours"],
+    }
+    sepsis_landmarks = build_multiple_horizons(
+        cohort, sepsis, event_time_column="t0", **common
+    )
+    sepsis_landmarks["target"] = "sepsis3"
+    shock_landmarks = build_multiple_horizons(
+        cohort, shock, event_time_column="shock_t0", **common
+    )
+    shock_landmarks["target"] = "septic_shock"
+    split_config = config["splits"]
+    patient_map = patient_grouped_split(
+        cohort[["subject_id"]].drop_duplicates(),
+        proportions=split_config["proportions"], seed=split_config["seed"],
+    ).set_index("subject_id")["partition"]
+    for frame in (sepsis_landmarks, shock_landmarks):
+        frame["partition"] = frame["subject_id"].map(patient_map).astype("string")
+    frames = {"sepsis3": sepsis_landmarks, "septic_shock": shock_landmarks}
+    for target, frame in frames.items():
+        for partition in ("development", "validation", "test"):
+            store.write_dataframe(
+                f"{target}_{partition}_landmarks",
+                frame.loc[frame["partition"].eq(partition)].reset_index(drop=True),
+                data_version=DATA_VERSION, code_version=code_version, config=config,
+            )
+
+
+def build_feature_stage(
+    *, data_dir: Path, run_root: Path, config: dict, code_version: str, resume: bool
+) -> None:
+    """Materialize predictor-only matrices, physically separated by partition."""
+    store = _store(run_root, "60_features")
+    names = tuple(
+        f"{target}_{partition}_features"
+        for target in ("sepsis3", "septic_shock")
+        for partition in ("development", "validation", "test")
+    )
+    if all(_valid(store, name, config, resume=resume) for name in names):
+        return
+    cohort = _store(run_root, "00_cohort").read_dataframe(
+        "cohort_stays", expected_config=config
+    )
+    raw = read_demo_tables(data_dir, ("chartevents", "labevents"))
+    events = pd.concat(
+        [normalize_vital_events(raw["chartevents"]),
+         normalize_lab_feature_events(raw["labevents"], cohort)],
+        ignore_index=True,
+    )
+    feature_config = config["features"]
+    landmark_store = _store(run_root, "50_landmarks")
+    for target in ("sepsis3", "septic_shock"):
+        for partition in ("development", "validation", "test"):
+            stem = f"{target}_{partition}"
+            landmarks = landmark_store.read_dataframe(
+                f"{stem}_landmarks", expected_config=config
+            )[["subject_id", "hadm_id", "stay_id", "landmark_time"]]
+            matrix = build_numeric_feature_matrix(
+                landmarks, events,
+                variables=tuple(feature_config["variables"]),
+                lookbacks_hours=tuple(feature_config["lookbacks_hours"]),
+            )
+            store.write_dataframe(
+                f"{stem}_features", matrix, data_version=DATA_VERSION,
+                code_version=code_version, config=config,
+            )
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -296,7 +426,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="protected root for derived SOFA runs",
     )
     parser.add_argument(
-        "--stage", choices=("cohort", "score", "label", "all"), default="all",
+        "--stage", choices=("cohort", "score", "label", "landmark", "feature", "all"), default="all",
     )
     parser.add_argument(
         "--resume", action="store_true",
@@ -338,6 +468,45 @@ def main(argv: list[str] | None = None) -> int:
                 code_version=code_version, resume=True,
             )
         build_label_stage(
+            data_dir=args.data_dir, run_root=run_root, config=config,
+            code_version=code_version, resume=args.resume,
+        )
+    if args.stage in {"landmark", "all"}:
+        if args.stage == "landmark":
+            build_cohort_stage(
+                data_dir=args.data_dir, run_root=run_root, config=config,
+                code_version=code_version, resume=True,
+            )
+            build_score_stage(
+                data_dir=args.data_dir, run_root=run_root, config=config,
+                code_version=code_version, resume=True,
+            )
+            build_label_stage(
+                data_dir=args.data_dir, run_root=run_root, config=config,
+                code_version=code_version, resume=True,
+            )
+        build_landmark_stage(
+            run_root=run_root, config=config,
+            code_version=code_version, resume=args.resume,
+        )
+    if args.stage in {"feature", "all"}:
+        if args.stage == "feature":
+            build_cohort_stage(
+                data_dir=args.data_dir, run_root=run_root, config=config,
+                code_version=code_version, resume=True,
+            )
+            build_score_stage(
+                data_dir=args.data_dir, run_root=run_root, config=config,
+                code_version=code_version, resume=True,
+            )
+            build_label_stage(
+                data_dir=args.data_dir, run_root=run_root, config=config,
+                code_version=code_version, resume=True,
+            )
+            build_landmark_stage(
+                run_root=run_root, config=config, code_version=code_version, resume=True,
+            )
+        build_feature_stage(
             data_dir=args.data_dir, run_root=run_root, config=config,
             code_version=code_version, resume=args.resume,
         )

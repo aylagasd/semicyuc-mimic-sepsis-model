@@ -1,0 +1,11 @@
+{
+  "horizons_hours": [3, 6, 12, 24],
+  "landmark_interval_hours": 1,
+  "lookback_hours": [6, 12, 24],
+  "minimum_observation_hours": 6,
+  "outcome_boundary": "(L,L+H]",
+  "primary_horizon_hours": 6,
+  "primary_lookback_hours": 24,
+  "schema_version": 1,
+  "short_followup_policy": "positive_if_event_observed_else_censored"
+}

@@ -1,0 +1,7 @@
+{
+  "laboratory_availability_time": "storetime",
+  "lookbacks_hours": [6, 12, 24],
+  "schema_version": 1,
+  "variables": ["heart_rate", "map", "resp_rate", "spo2", "temperature", "wbc", "creatinine", "bilirubin", "platelets", "lactate"],
+  "window_boundary": "[L-W,L)"
+}
