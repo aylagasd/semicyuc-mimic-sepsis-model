@@ -161,8 +161,9 @@ diferencia `label_available_at - t0`.
 
 ## Decisiones que deben congelarse antes de ejecutar MIMIC-IV completo
 
-- confirmar baseline mínimo observado con presunción cero como definición
-  primaria y elegir la sensibilidad de baseline requerida;
+- [x] baseline mínimo observado con presunción cero como definición primaria;
+- [ ] congelar el umbral mínimo de horas para la sensibilidad que exige
+  baseline observado;
 - confirmar resolución horaria o construir una rejilla independiente de la
   frecuencia cardiaca para episodios con cobertura insuficiente;
 - fijar la convención exacta del intervalo de outcome del landmark;
@@ -170,4 +171,3 @@ diferencia `label_available_at - t0`.
   incidente en UCI o se clasifican como prevalentes;
 - congelar reglas de deduplicación de episodios y umbrales mínimos de
   completitud para análisis de sensibilidad.
-

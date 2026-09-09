@@ -3,6 +3,9 @@
 
 Proyecto de investigación orientado al desarrollo de un modelo predictivo de sepsis y shock séptico en UCI utilizando la base de datos MIMIC-IV.
 
+Para comprender el proyecto completo y reproducir su estado actual, comience
+por la **[guía narrativa para investigadores y revisores](docs/project_guide.md)**.
+
 ## Objetivo
 
 Desarrollar y validar un modelo predictivo para:
@@ -187,3 +190,7 @@ Todas las figuras del análisis inicial, modelos, evaluación, tests gráficos,
 sensibilidades y subgrupos se crearán en R con `ggplot2`. Los notebooks de
 figuras usarán el kernel R y guardarán resultados reproducibles con `ggsave()`.
 Python no se utilizará para generar una versión alternativa de esas figuras.
+Las decisiones metodológicas y su estado se indexan en
+[`docs/decision_register.md`](docs/decision_register.md); las definiciones
+clínicas detalladas permanecen en `docs/sepsis_definition.md` y los parámetros
+ejecutables en `config/`.

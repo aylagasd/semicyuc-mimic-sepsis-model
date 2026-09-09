@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build restartable SOFA artifacts from the local MIMIC-IV demo.
+"""Build restartable SOFA and Sepsis-3 artifacts from the MIMIC-IV demo.
 
 The CLI deliberately never accepts credentials: its input is an already
 downloaded MIMIC-IV demo directory.  Patient-level outputs belong below
@@ -17,7 +17,14 @@ from typing import Iterable
 
 import pandas as pd
 
+from mimic_sepsis.antimicrobials import (
+    classify_prescriptions,
+    confirm_administrations,
+    load_antimicrobial_rules,
+)
 from mimic_sepsis.artifacts import ArtifactStore, ArtifactValidationError
+from mimic_sepsis.infection import pair_antibiotics_and_cultures
+from mimic_sepsis.sepsis_labels import build_sepsis_episodes, first_sepsis_episode_per_stay
 from mimic_sepsis.sofa_demo import build_demo_hourly_sofa
 from mimic_sepsis.sofa_hourly import build_icustay_hourly_grid
 
@@ -33,6 +40,11 @@ RAW_TABLES = {
     "outputevents": "icu/outputevents.csv.gz",
     "procedureevents": "icu/procedureevents.csv.gz",
     "labevents": "hosp/labevents.csv.gz",
+}
+INFECTION_TABLES = {
+    "prescriptions": "hosp/prescriptions.csv.gz",
+    "emar": "hosp/emar.csv.gz",
+    "microbiologyevents": "hosp/microbiologyevents.csv.gz",
 }
 COMPONENTS = (
     "respiratory",
@@ -56,6 +68,16 @@ def canonical_config() -> dict:
         "mimic_code_version": MIMIC_CODE_VERSION,
         "rolling_window_hours": 24,
         "window_semantics": "(endtime-24h,endtime]",
+        "suspected_infection": {
+            "antibiotic_evidence": "first_qualifying_emar_administration",
+            "antibiotic_first_hours": 24,
+            "culture_first_hours": 72,
+            "culture_scope": "blood_only",
+        },
+        "sepsis3": json.loads(
+            (Path(__file__).resolve().parents[1] / "config" / "sepsis3.json")
+            .read_text(encoding="utf-8")
+        ),
     }
 
 
@@ -123,6 +145,17 @@ def read_demo_tables(data_dir: Path, names: Iterable[str] = RAW_TABLES) -> dict[
     return tables
 
 
+def read_infection_tables(data_dir: Path) -> dict[str, pd.DataFrame]:
+    """Read the three hospital tables needed by the infection phenotype."""
+    tables = {}
+    for name, relative in INFECTION_TABLES.items():
+        path = data_dir / relative
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing {path}; run scripts/download_mimic_demo.py first")
+        tables[name] = pd.read_csv(path, low_memory=False)
+    return tables
+
+
 def build_cohort_stage(
     *, data_dir: Path, run_root: Path, config: dict, code_version: str, resume: bool
 ) -> None:
@@ -181,6 +214,54 @@ def build_score_stage(
     )
 
 
+def build_label_stage(
+    *, data_dir: Path, run_root: Path, config: dict, code_version: str, resume: bool
+) -> None:
+    """Materialize suspected-infection pairs and Sepsis-3 episode labels."""
+    label_store = _store(run_root, "40_labels")
+    names = ("suspected_infection_pairs", "sepsis_episodes", "sepsis_stays")
+    if all(_valid(label_store, name, config, resume=resume) for name in names):
+        return
+    score_store = _store(run_root, "30_score")
+    cohort_store = _store(run_root, "00_cohort")
+    sofa = score_store.read_dataframe("sofa_hourly", expected_config=config)
+    stays = cohort_store.read_dataframe("cohort_stays", expected_config=config)
+    sources = read_infection_tables(data_dir)
+
+    repo = Path(__file__).resolve().parents[1]
+    rules = load_antimicrobial_rules(repo / "config" / "antimicrobial_rules.csv")
+    classified = classify_prescriptions(sources["prescriptions"], rules)
+    confirmed = confirm_administrations(classified, sources["emar"])
+    antibiotics = confirmed.dropna(subset=["administration_time"])[
+        ["subject_id", "hadm_id", "pharmacy_id", "administration_time"]
+    ].rename(columns={
+        "pharmacy_id": "antibiotic_id", "administration_time": "antibiotic_time"
+    })
+
+    microbiology = sources["microbiologyevents"].copy()
+    microbiology["culture_time"] = pd.to_datetime(
+        microbiology["charttime"], errors="coerce"
+    ).fillna(pd.to_datetime(microbiology["chartdate"], errors="coerce"))
+    cultures = (
+        microbiology.loc[
+            microbiology["spec_type_desc"].fillna("").str.contains("BLOOD", case=False)
+        ]
+        .dropna(subset=["subject_id", "hadm_id", "micro_specimen_id", "culture_time"])
+        .sort_values("culture_time")
+        .drop_duplicates(["subject_id", "hadm_id", "micro_specimen_id"])
+        [["subject_id", "hadm_id", "micro_specimen_id", "culture_time"]]
+        .rename(columns={"micro_specimen_id": "culture_id"})
+    )
+    pairs = pair_antibiotics_and_cultures(antibiotics, cultures)
+    episodes = build_sepsis_episodes(pairs, stays, sofa)
+    sepsis_stays = first_sepsis_episode_per_stay(episodes)
+    for name, frame in zip(names, (pairs, episodes, sepsis_stays), strict=True):
+        label_store.write_dataframe(
+            name, frame, data_version=DATA_VERSION,
+            code_version=code_version, config=config,
+        )
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -192,7 +273,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="protected root for derived SOFA runs",
     )
     parser.add_argument(
-        "--stage", choices=("cohort", "score", "all"), default="all",
+        "--stage", choices=("cohort", "score", "label", "all"), default="all",
     )
     parser.add_argument(
         "--resume", action="store_true",
@@ -220,6 +301,20 @@ def main(argv: list[str] | None = None) -> int:
                 code_version=code_version, resume=True,
             )
         build_score_stage(
+            data_dir=args.data_dir, run_root=run_root, config=config,
+            code_version=code_version, resume=args.resume,
+        )
+    if args.stage in {"label", "all"}:
+        if args.stage == "label":
+            build_cohort_stage(
+                data_dir=args.data_dir, run_root=run_root, config=config,
+                code_version=code_version, resume=True,
+            )
+            build_score_stage(
+                data_dir=args.data_dir, run_root=run_root, config=config,
+                code_version=code_version, resume=True,
+            )
+        build_label_stage(
             data_dir=args.data_dir, run_root=run_root, config=config,
             code_version=code_version, resume=args.resume,
         )

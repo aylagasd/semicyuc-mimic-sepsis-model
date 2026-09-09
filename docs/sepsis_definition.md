@@ -50,7 +50,11 @@ Compute total SOFA using six components (respiratory, coagulation, liver, cardio
 
 For every suspected-infection episode:
 
-- **Baseline SOFA:** lowest defensible pre-infection SOFA, primary operationalization = worst component values in `[t_si - 48 h, t_si)` with absent components scored zero.
+- **Baseline SOFA:** minimum total SOFA observed on the hourly grid in
+  `[t_si - 48 h, t_si)`. The hourly total itself uses the worst eligible value
+  of each component in its preceding 24-hour window. If no baseline hour is
+  observable, baseline is assumed to be zero and explicitly flagged; requiring
+  an observed baseline is a prespecified sensitivity analysis.
 - **Acute SOFA:** rolling/worst SOFA assessed from `[t_si - 24 h, t_si + 24 h]`.
 - **Sepsis:** increase in total SOFA of at least 2 points relative to baseline, temporally associated with suspected infection.
 - **Onset `t0`:** earliest time in `[t_si - 24 h, t_si + 24 h]` at which the computable SOFA increase first reaches 2. Component state is carried only for a prespecified clinically plausible validity interval; no backward filling from future measurements.
@@ -97,6 +101,8 @@ Required quality checks include impossible temporal ordering, events outside adm
 - [ ] Pin MIMIC-IV and derived/concepts code versions.
 - [ ] Approve antimicrobial, culture, vasopressor and SOFA item mappings.
 - [ ] Choose medication episode gap and administration evidence hierarchy.
+- [x] Freeze primary SOFA baseline as the minimum observed hourly total over
+  48 hours, with an explicitly flagged zero assumption when no hour exists.
 - [ ] Choose physiologic carry-forward validity intervals for dynamic SOFA.
 - [ ] Confirm primary shock fluid-resuscitation proxy.
 - [ ] Quantify phenotype agreement and complete blinded chart-level plausibility review.

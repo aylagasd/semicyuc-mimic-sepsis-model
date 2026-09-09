@@ -1,0 +1,13 @@
+{
+  "acute_hours_after": 24,
+  "acute_hours_before": 24,
+  "baseline_hours": 48,
+  "baseline_strategy": "minimum_observed_hourly_total_else_zero_flagged",
+  "delta_sofa_threshold": 2,
+  "phenotype": "sepsis3_primary",
+  "schema_version": 1,
+  "window_boundaries": {
+    "acute": "inclusive_both",
+    "baseline": "left_closed_right_open"
+  }
+}

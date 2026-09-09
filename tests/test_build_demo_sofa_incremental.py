@@ -99,3 +99,57 @@ def test_score_stage_writes_components_and_final(tmp_path, monkeypatch):
     )
     assert component.loc[0, "score_24h"] == 1
     assert pd.isna(component.loc[0, "source_event_count_24h"])
+
+
+def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
+    config = cli.canonical_config()
+    run_root = tmp_path / "run"
+    cli.ArtifactStore(run_root / "00_cohort").write_dataframe(
+        "cohort_stays",
+        pd.DataFrame({
+            "subject_id": [1], "hadm_id": [10], "stay_id": [100],
+            "intime": ["2100-01-01"], "outtime": ["2100-01-02"],
+        }),
+        data_version="2.2", code_version="test", config=config,
+    )
+    cli.ArtifactStore(run_root / "30_score").write_dataframe(
+        "sofa_hourly",
+        pd.DataFrame({
+            "stay_id": [100], "endtime": ["2100-01-01"],
+            "sofa_total": [2], "missing_components": [0],
+        }),
+        data_version="2.2", code_version="test", config=config,
+    )
+    confirmed = pd.DataFrame({
+        "subject_id": [1], "hadm_id": [10], "pharmacy_id": [20],
+        "administration_time": ["2100-01-01"],
+    })
+    pairs = pd.DataFrame({
+        "subject_id": [1], "hadm_id": [10], "antibiotic_id": [20],
+        "antibiotic_time": ["2100-01-01"], "culture_id": [30],
+        "culture_time": ["2100-01-01"], "pair_direction": ["antibiotic_first"],
+        "delta_hours": [0.0], "t_si": ["2100-01-01"],
+    })
+    episodes = pairs.assign(stay_id=100, sepsis3=True)
+    monkeypatch.setattr(cli, "read_infection_tables", lambda data_dir: {
+        "prescriptions": pd.DataFrame(), "emar": pd.DataFrame(),
+        "microbiologyevents": pd.DataFrame({
+            "subject_id": [1], "hadm_id": [10], "micro_specimen_id": [30],
+            "charttime": ["2100-01-01"], "chartdate": [None],
+            "spec_type_desc": ["BLOOD CULTURE"],
+        }),
+    })
+    monkeypatch.setattr(cli, "load_antimicrobial_rules", lambda path: pd.DataFrame())
+    monkeypatch.setattr(cli, "classify_prescriptions", lambda frame, rules: frame)
+    monkeypatch.setattr(cli, "confirm_administrations", lambda frame, emar: confirmed)
+    monkeypatch.setattr(cli, "pair_antibiotics_and_cultures", lambda a, c: pairs)
+    monkeypatch.setattr(cli, "build_sepsis_episodes", lambda p, s, h: episodes)
+    monkeypatch.setattr(cli, "first_sepsis_episode_per_stay", lambda e: e)
+
+    cli.build_label_stage(
+        data_dir=tmp_path, run_root=run_root, config=config,
+        code_version="test", resume=False,
+    )
+    store = cli.ArtifactStore(run_root / "40_labels")
+    for name in ("suspected_infection_pairs", "sepsis_episodes", "sepsis_stays"):
+        assert store.validate(name, expected_config=config).rows == 1

@@ -1,5 +1,23 @@
 # Contrato de artefactos derivados para SOFA
 
+## Etiquetas de infección y Sepsis-3
+
+La etapa `40_labels/` se publica solo después de validar `00_cohort/` y
+`30_score/`, y comparte exactamente el mismo `run_id` y hash de configuración.
+Contiene tres tablas protegidas:
+
+| Artefacto | Granularidad | Clave lógica |
+|---|---|---|
+| `suspected_infection_pairs` | par antimicrobiano–cultivo | `subject_id`, `hadm_id`, `antibiotic_id`, `culture_id` |
+| `sepsis_episodes` | par candidato por estancia solapada, o par excluido | clave del par + `stay_id` cuando existe |
+| `sepsis_stays` | primer episodio Sepsis-3 por estancia | `stay_id` |
+
+Los tres artefactos son datos a nivel de paciente: permanecen bajo `data/`, no
+se versionan y no se muestran como filas en notebooks. Sus manifiestos incluyen
+checksum, esquema, versión de datos, versión de código y hash de la definición
+de `config/sepsis3.json`. Los agregados deben declarar denominador y distinguir
+pares, episodios par–estancia y estancias; son magnitudes diferentes.
+
 ## Propósito
 
 Este documento define el contrato de los artefactos incrementales usados para
