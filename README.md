@@ -92,8 +92,8 @@ Proyecto SEMICYUC
 
 ## Estado del proyecto
 
-El repositorio dispone ya de fenotipo, landmarks, características temporales y
-baselines técnicos reproducibles sobre el demo. El código es exclusivamente para investigación y no está
+El repositorio dispone ya de fenotipo, landmarks, características temporales,
+baselines técnicos y evaluación agrupada reproducible sobre el demo. El código es exclusivamente para investigación y no está
 validado para tomar decisiones clínicas.
 
 ## Inicio rápido

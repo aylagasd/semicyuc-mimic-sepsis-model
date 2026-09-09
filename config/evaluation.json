@@ -1,0 +1,9 @@
+{
+  "bootstrap_replicates": 1000,
+  "confidence_level": 0.95,
+  "metrics": ["auroc", "auprc", "brier", "log_loss"],
+  "resampling_unit": "subject_id",
+  "schema_version": 1,
+  "seed": 20260909,
+  "test_access": "forbidden_during_development"
+}

@@ -4,7 +4,11 @@ from pathlib import Path
 import pytest
 
 
-NOTEBOOKS = ("09_feature_engineering.ipynb", "10_model_development.ipynb")
+NOTEBOOKS = (
+    "09_feature_engineering.ipynb",
+    "10_model_development.ipynb",
+    "11_model_evaluation.ipynb",
+)
 FORBIDDEN_TEST_ARTIFACTS = (
     "sepsis3_test_landmarks",
     "sepsis3_test_features",
