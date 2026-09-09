@@ -16,7 +16,7 @@ entradas, salidas, versión de datos, semilla y criterios de finalización.
 | 05 | `05_confirm_antimicrobials.ipynb` | Python | Clasificar fármacos y contrastar administración EMAR. |
 | 06 | `06_sofa_readiness.ipynb` | Python | Auditar cobertura, umbrales y riesgos del SOFA dinámico. |
 | 07 | `07_sofa_and_outcomes.ipynb` | Python + R | Validar SOFA y etiquetas Sepsis-3, auditar resultados agregados y comparar `matplotlib` con `ggplot2`. |
-| 08 | `08_initial_analysis.ipynb` | R | Análisis descriptivo y figuras con `ggplot2`. |
+| 08 | `08_initial_analysis.ipynb` | Python + R | Auditoría agregada de multiplicidad, cobertura y sensibilidad; figuras con `ggplot2`. |
 | 09 | `09_feature_engineering.ipynb` | Python/SQL | Crear landmarks y predictores temporales. |
 | 10 | `10_model_development.ipynb` | Python | Entrenar los modelos preespecificados. |
 | 11 | `11_model_evaluation.ipynb` | R | Discriminación, calibración y utilidad con `ggplot2`. |
