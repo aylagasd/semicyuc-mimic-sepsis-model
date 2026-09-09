@@ -128,6 +128,7 @@ Subgroups with few events are reported descriptively with uncertainty; no unsupp
   outcome boundary `(L,L+H]` in `config/landmarks.json`.
 - [ ] Define minimum predictor set, transforms and whether SOFA/treatments enter the primary model.
 - [ ] Select landmark weighting/sampling and competing-event strategy.
+- [x] Implement the prespecified 3/6/12/24-hour horizon and 6/12/24-hour lookback engineering grid without test access.
 - [ ] Perform formal sample-size calculation after phenotype counts are available.
 - [ ] Define actionable thresholds and the intended clinical response before decision-curve interpretation.
 - [x] Freeze locked-test access rules and start the append-only access log in `docs/test_access_log.md`.

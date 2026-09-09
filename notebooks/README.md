@@ -20,10 +20,10 @@ entradas, salidas, versión de datos, semilla y criterios de finalización.
 | 09 | `09_feature_engineering.ipynb` | Python + R | Auditar landmarks, particiones y predictores temporales; comparar Matplotlib con `ggplot2` sin abrir el test. |
 | 10 | `10_model_development.ipynb` | Python + R | Ensamblar el horizonte primario y validar referencias de prevalencia/regresión clínica sin abrir el test. |
 | 11 | `11_model_evaluation.ipynb` | Python + R | Evaluación interna y comparación pareada con bootstrap por paciente; figura `ggplot2`, sin abrir test. |
-| 12 | `12_sensitivity_and_subgroups.ipynb` | R | Sensibilidades y subgrupos con `ggplot2`. |
+| 12 | `12_sensitivity_and_subgroups.ipynb` | Python + R | Sensibilidades de cohorte, horizonte y lookback; subgrupos aplazados por tamaño, figura `ggplot2`. |
 | 13 | `13_final_report.ipynb` | R | Tablas y figuras finales reproducibles. |
 
-Los nombres posteriores al 11 son el plan inicial y se crearán cuando exista su
+Los nombres posteriores al 12 son el plan inicial y se crearán cuando exista su
 lógica y prueba correspondiente; no se añadirán notebooks vacíos como marcador.
 
 ## Contrato de ejecución

@@ -1,0 +1,7 @@
+{
+  "cohort_policies": ["first_per_admission", "first_per_patient", "all"],
+  "horizons_hours": [3, 6, 12, 24],
+  "lookbacks_hours": [6, 12, 24],
+  "schema_version": 1,
+  "test_access": "forbidden_during_development"
+}

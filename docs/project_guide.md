@@ -189,7 +189,8 @@ manifiesto canónico es [`notebooks/README.md`](../notebooks/README.md).
 | 09 | Landmarks, particiones, cobertura y características leakage-safe. |
 | 10 | Referencias de prevalencia y regresión clínica con validación agrupada. |
 | 11 | Comparación pareada e intervalos por bootstrap de pacientes completos. |
-| 12–13 | Sensibilidades e informe; pendientes. |
+| 12 | Sensibilidades de cohorte, horizonte y lookback. |
+| 13 | Informe reproducible; pendiente. |
 
 Python se usa para datos y modelos. R y `ggplot2` constituyen el estándar de
 las figuras analíticas y publicables. El notebook 07 incluye una comparación
@@ -255,7 +256,7 @@ Desde la raíz del repositorio:
 jupyter lab
 ```
 
-Se abren los notebooks en orden 00–11. Deben ejecutarse desde un kernel limpio;
+Se abren los notebooks en orden 00–12. Deben ejecutarse desde un kernel limpio;
 los archivos versionados no conservan outputs ni datos clínicos embebidos.
 
 ## 9. Conexión al MIMIC-IV completo
@@ -362,7 +363,7 @@ Una revisión externa puede seguir este orden:
 4. [`sepsis_definition.md`](sepsis_definition.md);
 5. [`modeling_strategy.md`](modeling_strategy.md);
 6. [`variable_dictionary.md`](variable_dictionary.md);
-7. [`notebooks/README.md`](../notebooks/README.md) y notebooks 00–11;
+7. [`notebooks/README.md`](../notebooks/README.md) y notebooks 00–12;
 8. tests correspondientes antes de revisar la implementación clínica.
 
 Para detalles de ingeniería de SOFA y almacenamiento:
