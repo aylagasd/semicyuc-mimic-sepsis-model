@@ -187,7 +187,8 @@ manifiesto canónico es [`notebooks/README.md`](../notebooks/README.md).
 | 07 | SOFA horario, Sepsis-3 y resultados agregados. |
 | 08 | Auditoría agregada inicial del fenotipo. |
 | 09 | Landmarks, particiones, cobertura y características leakage-safe. |
-| 10–13 | Modelos, evaluación, sensibilidades e informe; pendientes. |
+| 10 | Referencias de prevalencia y regresión clínica con validación agrupada. |
+| 11–13 | Evaluación ampliada, sensibilidades e informe; pendientes. |
 
 Python se usa para datos y modelos. R y `ggplot2` constituyen el estándar de
 las figuras analíticas y publicables. El notebook 07 incluye una comparación
@@ -253,7 +254,7 @@ Desde la raíz del repositorio:
 jupyter lab
 ```
 
-Se abren los notebooks en orden 00–09. Deben ejecutarse desde un kernel limpio;
+Se abren los notebooks en orden 00–10. Deben ejecutarse desde un kernel limpio;
 los archivos versionados no conservan outputs ni datos clínicos embebidos.
 
 ## 9. Conexión al MIMIC-IV completo
@@ -319,8 +320,8 @@ observación y un horizonte `H`. Las reglas esenciales son:
   dentro de cada fold;
 - el test final permanece bloqueado hasta congelar fenotipo, features y modelos.
 
-La convención exacta del horizonte futuro aún debe cerrarse conjuntamente en
-la implementación y sus pruebas.
+El horizonte primario es 6 h y su intervalo es `(L,L+6 h]`; esta convención
+está congelada en D009/D012 y cubierta por pruebas de frontera.
 
 ## 12. Calidad, revisión y cambios metodológicos
 
@@ -345,10 +346,8 @@ Los siguientes hitos continúan abiertos:
 - auditoría clínica final del listado antimicrobiano y alcance de cultivos;
 - criterio de cobertura mínima para episodios SOFA;
 - revisión clínica del proxy de shock séptico y sensibilidades de fluidos/MAP;
-- notebook 08 y análisis descriptivo con ggplot2;
-- landmarks y features leakage-safe;
 - partición por paciente y cálculo formal de tamaño muestral;
-- modelos de referencia, regresión penalizada y gradient boosting;
+- congelación del conjunto primario, regresión penalizada y gradient boosting;
 - calibración, bootstrap agrupado, utilidad y subgrupos;
 - ejecución sobre MIMIC-IV completo y validación externa.
 
@@ -362,7 +361,7 @@ Una revisión externa puede seguir este orden:
 4. [`sepsis_definition.md`](sepsis_definition.md);
 5. [`modeling_strategy.md`](modeling_strategy.md);
 6. [`variable_dictionary.md`](variable_dictionary.md);
-7. [`notebooks/README.md`](../notebooks/README.md) y notebooks 00–07;
+7. [`notebooks/README.md`](../notebooks/README.md) y notebooks 00–10;
 8. tests correspondientes antes de revisar la implementación clínica.
 
 Para detalles de ingeniería de SOFA y almacenamiento:

@@ -18,12 +18,12 @@ entradas, salidas, versión de datos, semilla y criterios de finalización.
 | 07 | `07_sofa_and_outcomes.ipynb` | Python + R | Validar SOFA y etiquetas Sepsis-3, auditar resultados agregados y comparar `matplotlib` con `ggplot2`. |
 | 08 | `08_initial_analysis.ipynb` | Python + R | Auditoría agregada de multiplicidad, cobertura y sensibilidad; figuras con `ggplot2`. |
 | 09 | `09_feature_engineering.ipynb` | Python + R | Auditar landmarks, particiones y predictores temporales; comparar Matplotlib con `ggplot2` sin abrir el test. |
-| 10 | `10_model_development.ipynb` | Python | Entrenar los modelos preespecificados. |
+| 10 | `10_model_development.ipynb` | Python + R | Ensamblar el horizonte primario y validar referencias de prevalencia/regresión clínica sin abrir el test. |
 | 11 | `11_model_evaluation.ipynb` | R | Discriminación, calibración y utilidad con `ggplot2`. |
 | 12 | `12_sensitivity_and_subgroups.ipynb` | R | Sensibilidades y subgrupos con `ggplot2`. |
 | 13 | `13_final_report.ipynb` | R | Tablas y figuras finales reproducibles. |
 
-Los nombres posteriores al 09 son el plan inicial y se crearán cuando exista su
+Los nombres posteriores al 10 son el plan inicial y se crearán cuando exista su
 lógica y prueba correspondiente; no se añadirán notebooks vacíos como marcador.
 
 ## Contrato de ejecución

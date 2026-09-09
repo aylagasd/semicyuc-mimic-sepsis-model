@@ -92,8 +92,8 @@ Proyecto SEMICYUC
 
 ## Estado del proyecto
 
-El repositorio está en la fase de definición del fenotipo y construcción del
-pipeline reproducible. El código es exclusivamente para investigación y no está
+El repositorio dispone ya de fenotipo, landmarks, características temporales y
+baselines técnicos reproducibles sobre el demo. El código es exclusivamente para investigación y no está
 validado para tomar decisiones clínicas.
 
 ## Inicio rápido
@@ -123,7 +123,7 @@ set +a
 jupyter lab
 ```
 
-Los notebooks iniciales son:
+Los tres primeros notebooks son:
 
 1. `notebooks/00_download_and_inspect_demo.ipynb`: descarga y verifica la muestra
    pública MIMIC-IV Demo v2.2 y prueba sus tablas localmente con DuckDB.
@@ -186,10 +186,11 @@ en `AGENTS.md`.
 
 ## Convención gráfica
 
-Todas las figuras del análisis inicial, modelos, evaluación, tests gráficos,
-sensibilidades y subgrupos se crearán en R con `ggplot2`. Los notebooks de
-figuras usarán el kernel R y guardarán resultados reproducibles con `ggsave()`.
-Python no se utilizará para generar una versión alternativa de esas figuras.
+Todas las figuras publicables del análisis inicial, modelos, evaluación,
+sensibilidades y subgrupos se crearán en R con `ggplot2` y se guardarán con
+`ggsave()`. Algunos notebooks comparan explícitamente la misma tabla agregada
+con Matplotlib para evaluar estilos; esa comparación no cambia el estándar de
+publicación.
 Las decisiones metodológicas y su estado se indexan en
 [`docs/decision_register.md`](docs/decision_register.md); las definiciones
 clínicas detalladas permanecen en `docs/sepsis_definition.md` y los parámetros

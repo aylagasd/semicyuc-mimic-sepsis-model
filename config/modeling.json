@@ -1,0 +1,18 @@
+{
+  "clinical_baseline_features": [
+    "heart_rate_last_24h",
+    "map_min_24h",
+    "resp_rate_max_24h",
+    "temperature_min_24h",
+    "temperature_max_24h"
+  ],
+  "cross_validation_folds": 5,
+  "elastic_net_l1_ratio": 0.5,
+  "logistic_c": 1.0,
+  "patient_weighting": "equal_total_weight_per_patient",
+  "primary_horizon_hours": 6,
+  "primary_target": "sepsis3",
+  "schema_version": 1,
+  "seed": 20260909,
+  "test_access": "forbidden_during_development"
+}

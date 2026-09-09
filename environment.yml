@@ -6,6 +6,7 @@ dependencies:
   - pip
   - jupyterlab>=4,<5
   - matplotlib>=3.8,<4
+  - scikit-learn>=1.8,<2
   - r-base>=4.3,<5
   - r-irkernel
   - r-renv
