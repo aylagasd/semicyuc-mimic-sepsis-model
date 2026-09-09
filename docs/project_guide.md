@@ -37,8 +37,9 @@ El proyecto separa tres problemas que no deben confundirse:
    transportabilidad. Un buen rendimiento retrospectivo no demuestra beneficio
    clínico.
 
-Shock séptico será un segundo desenlace. Su proxy operativo definitivo —en
-especial cómo representar resucitación adecuada con fluidos— sigue pendiente.
+Shock séptico es un segundo desenlace. Existe un proxy provisional basado en
+vasopresor y lactato >2 mmol/L; cómo representar resucitación adecuada con
+fluidos continúa pendiente y se evaluará como sensibilidad.
 
 ## 3. Fuente de datos y límites de uso
 
@@ -335,7 +336,7 @@ Los siguientes hitos continúan abiertos:
 
 - auditoría clínica final del listado antimicrobiano y alcance de cultivos;
 - criterio de cobertura mínima para episodios SOFA;
-- definición operativa definitiva de shock séptico;
+- revisión clínica del proxy de shock séptico y sensibilidades de fluidos/MAP;
 - notebook 08 y análisis descriptivo con ggplot2;
 - landmarks y features leakage-safe;
 - partición por paciente y cálculo formal de tamaño muestral;

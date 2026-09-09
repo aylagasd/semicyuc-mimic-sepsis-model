@@ -24,7 +24,8 @@ def pair_multiplicity(pairs: pd.DataFrame) -> pd.DataFrame:
 
 
 def phenotype_summary(
-    pairs: pd.DataFrame, episodes: pd.DataFrame, sepsis_stays: pd.DataFrame
+    pairs: pd.DataFrame, episodes: pd.DataFrame, sepsis_stays: pd.DataFrame,
+    shock_stays: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Return denominated counts without patient-level rows."""
     required = {
@@ -46,6 +47,13 @@ def phenotype_summary(
         ("sepsis3_stays_primary", len(sepsis_stays), "stays"),
         ("sepsis3_stays_observed_baseline", len(sensitivity), "stays"),
     ]
+    if shock_stays is not None:
+        if "septic_shock" not in shock_stays:
+            raise ValueError("shock_stays is missing column: septic_shock")
+        values.extend([
+            ("septic_shock_proxy_stays", int(shock_stays["septic_shock"].sum()), "stays"),
+            ("sepsis_stays_without_shock_proxy", int((~shock_stays["septic_shock"]).sum()), "stays"),
+        ])
     return pd.DataFrame(values, columns=["metric", "count", "unit"])
 
 

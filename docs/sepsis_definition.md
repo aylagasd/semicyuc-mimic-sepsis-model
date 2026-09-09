@@ -73,6 +73,16 @@ Primary research definition requires all of the following:
 
 Operationally, identify a qualifying vasopressor infusion (norepinephrine, epinephrine, vasopressin, dopamine or phenylephrine; whitelist versioned) and lactate >2 mmol/L within a symmetric six-hour window. Shock onset is the later time at which both criteria have become observable. Require the pair within 24 hours before to 24 hours after `t0` in the primary analysis.
 
+La implementación provisional vive en `src/mimic_sepsis/septic_shock.py` y sus
+parámetros en `config/septic_shock.json`. Normaliza lactato a mmol/L, conserva
+su tiempo de disponibilidad y produce `shock_t0` y
+`shock_label_available_at`. El campo `adequate_fluids_verified` permanece falso
+en el proxy primario: no se interpreta como ausencia de fluidoterapia, sino
+como imposibilidad de verificar fielmente esta cláusula con la regla actual.
+La definición se apoya en los criterios originales de
+[Sepsis-3](https://doi.org/10.1001/jama.2016.0287) y su
+[derivación clínica](https://doi.org/10.1001/jama.2016.0289).
+
 “Adequate volume resuscitation” and “vasopressors required to maintain MAP” cannot be perfectly reconstructed from observational EHR data. The primary proxy and alternatives must therefore be reported explicitly:
 
 - primary proxy: vasopressor infusion plus lactate criterion, with crystalloid/colloid exposure summarized but not used as an unverified causal requirement;

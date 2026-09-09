@@ -25,6 +25,11 @@ from mimic_sepsis.antimicrobials import (
 from mimic_sepsis.artifacts import ArtifactStore, ArtifactValidationError
 from mimic_sepsis.infection import pair_antibiotics_and_cultures
 from mimic_sepsis.sepsis_labels import build_sepsis_episodes, first_sepsis_episode_per_stay
+from mimic_sepsis.septic_shock import (
+    build_septic_shock_labels,
+    normalize_lactate,
+    normalize_vasopressor_intervals,
+)
 from mimic_sepsis.sofa_demo import build_demo_hourly_sofa
 from mimic_sepsis.sofa_hourly import build_icustay_hourly_grid
 
@@ -76,6 +81,10 @@ def canonical_config() -> dict:
         },
         "sepsis3": json.loads(
             (Path(__file__).resolve().parents[1] / "config" / "sepsis3.json")
+            .read_text(encoding="utf-8")
+        ),
+        "septic_shock": json.loads(
+            (Path(__file__).resolve().parents[1] / "config" / "septic_shock.json")
             .read_text(encoding="utf-8")
         ),
     }
@@ -219,7 +228,10 @@ def build_label_stage(
 ) -> None:
     """Materialize suspected-infection pairs and Sepsis-3 episode labels."""
     label_store = _store(run_root, "40_labels")
-    names = ("suspected_infection_pairs", "sepsis_episodes", "sepsis_stays")
+    names = (
+        "suspected_infection_pairs", "sepsis_episodes", "sepsis_stays",
+        "septic_shock_stays",
+    )
     if all(_valid(label_store, name, config, resume=resume) for name in names):
         return
     score_store = _store(run_root, "30_score")
@@ -255,7 +267,18 @@ def build_label_stage(
     pairs = pair_antibiotics_and_cultures(antibiotics, cultures)
     episodes = build_sepsis_episodes(pairs, stays, sofa)
     sepsis_stays = first_sepsis_episode_per_stay(episodes)
-    for name, frame in zip(names, (pairs, episodes, sepsis_stays), strict=True):
+    shock_sources = read_demo_tables(data_dir, ("labevents", "inputevents"))
+    lactates = normalize_lactate(shock_sources["labevents"])
+    vasopressors = normalize_vasopressor_intervals(shock_sources["inputevents"])
+    shock_config = config["septic_shock"]
+    shock_stays = build_septic_shock_labels(
+        sepsis_stays, lactates, vasopressors,
+        lactate_threshold=shock_config["lactate_threshold_mmol_l"],
+        concurrency_hours=shock_config["concurrency_hours"],
+        association_hours=shock_config["sepsis_association_hours_after"],
+    )
+    frames = (pairs, episodes, sepsis_stays, shock_stays)
+    for name, frame in zip(names, frames, strict=True):
         label_store.write_dataframe(
             name, frame, data_version=DATA_VERSION,
             code_version=code_version, config=config,

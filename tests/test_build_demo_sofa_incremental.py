@@ -145,11 +145,21 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "pair_antibiotics_and_cultures", lambda a, c: pairs)
     monkeypatch.setattr(cli, "build_sepsis_episodes", lambda p, s, h: episodes)
     monkeypatch.setattr(cli, "first_sepsis_episode_per_stay", lambda e: e)
+    monkeypatch.setattr(cli, "read_demo_tables", lambda data_dir, names: {
+        "labevents": pd.DataFrame(), "inputevents": pd.DataFrame(),
+    })
+    monkeypatch.setattr(cli, "normalize_lactate", lambda frame: pd.DataFrame())
+    monkeypatch.setattr(cli, "normalize_vasopressor_intervals", lambda frame: pd.DataFrame())
+    shock = pd.DataFrame({"stay_id": [100], "septic_shock": [False]})
+    monkeypatch.setattr(cli, "build_septic_shock_labels", lambda *args, **kwargs: shock)
 
     cli.build_label_stage(
         data_dir=tmp_path, run_root=run_root, config=config,
         code_version="test", resume=False,
     )
     store = cli.ArtifactStore(run_root / "40_labels")
-    for name in ("suspected_infection_pairs", "sepsis_episodes", "sepsis_stays"):
+    for name in (
+        "suspected_infection_pairs", "sepsis_episodes", "sepsis_stays",
+        "septic_shock_stays",
+    ):
         assert store.validate(name, expected_config=config).rows == 1

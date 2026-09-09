@@ -11,6 +11,7 @@ Contiene tres tablas protegidas:
 | `suspected_infection_pairs` | par antimicrobiano–cultivo | `subject_id`, `hadm_id`, `antibiotic_id`, `culture_id` |
 | `sepsis_episodes` | par candidato por estancia solapada, o par excluido | clave del par + `stay_id` cuando existe |
 | `sepsis_stays` | primer episodio Sepsis-3 por estancia | `stay_id` |
+| `septic_shock_stays` | proxy de shock evaluado en cada estancia Sepsis-3 | `stay_id` |
 
 Los tres artefactos son datos a nivel de paciente: permanecen bajo `data/`, no
 se versionan y no se muestran como filas en notebooks. Sus manifiestos incluyen
