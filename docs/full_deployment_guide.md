@@ -38,6 +38,24 @@ El preflight solo abre la cabecera comprimida de las 11 tablas requeridas,
 detecta ficheros ausentes, deriva de esquema y espacio libre. Devuelve JSON y
 código 0 únicamente cuando todos los controles pasan.
 
+Superado el preflight, la reducción fuera de memoria se ejecuta con:
+
+```bash
+python scripts/extract_full_mimic.py /ruta/mimiciv/3.1 \
+  --data-version 3.1 \
+  --output-dir /ruta/derivados/full_extract \
+  --temp-dir /ruta/disco_temporal/duckdb \
+  --memory-limit 16GB \
+  --resume
+```
+
+El límite de memoria y las rutas deben adaptarse al servidor. DuckDB selecciona
+primero la cohorte, filtra filas por estancia, tiempo e `itemid`, y escribe solo
+las columnas requeridas en Parquet comprimido. Cada salida tiene un manifiesto
+con número de filas, esquema, versión, hash de configuración y SHA-256. Con
+`--resume` solo se reutiliza un artefacto cuyo hash y configuración coincidan.
+La salida del comando contiene exclusivamente recuentos y hashes agregados.
+
 ## 3. PostgreSQL institucional o propio
 
 Copiar `config/mimic.env.example` a un fichero local ignorado, completar sus
@@ -68,14 +86,16 @@ lee filas de pacientes. Su salida nunca incluye URL, host, usuario o contraseña
 | Definiciones clínicas y pruebas de frontera | listo | reutilizable |
 | Manifiestos, landmarks, particiones y features | listo | contrato reutilizable |
 | Lectura monolítica con pandas | aceptable | **no ejecutar** |
-| Extracción SQL/chunked pushdown | no necesaria | pendiente |
+| Extracción CSV fuera de memoria con pushdown | validada | implementada; falta benchmark completo |
+| SOFA, infección y features sobre Parquet reducido | listo en pandas/demo | pendiente de backend escalable |
 | Modelado y bootstrap | prueba técnica | ejecutar en servidor de cálculo |
 
 El script `build_demo_sofa_incremental.py` está diseñado deliberadamente para
 el demo. No debe apuntarse a los CSV completos: cargaría tablas masivas en
-memoria. Antes del despliegue se implementará una extracción SQL o por chunks
-que produzca exactamente los mismos contratos de artefactos y supere las
-pruebas existentes.
+memoria. `extract_full_mimic.py` resuelve la primera reducción escalable, pero
+todavía no autoriza ejecutar los pasos pandas posteriores sobre todo el Parquet:
+SOFA, infección, landmarks y features necesitan su implementación SQL/chunked
+y validación de equivalencia antes del despliegue completo.
 
 ## 5. Puertas antes de ejecutar el conjunto completo
 
