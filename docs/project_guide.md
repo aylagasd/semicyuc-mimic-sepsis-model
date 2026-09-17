@@ -162,7 +162,8 @@ Los módulos principales son:
 - `landmarks.py` y `splits.py`: conjuntos de riesgo, censura y separación por paciente;
 - `feature_sources.py` y `features.py`: disponibilidad y agregación temporal de predictores;
 - `artifacts.py`: Parquet atómico, manifiestos, hashes y validación;
-- `db.py` y `config.py`: conexión de solo lectura al MIMIC remoto.
+- `db.py` y `config.py`: conexión PostgreSQL impuesta como solo lectura;
+- `deployment.py`: preflight de la distribución completa sin leer pacientes.
 
 DuckDB se usa como motor local para inspeccionar CSV/Parquet y validar
 artefactos sin cargar una base de datos completa. La lógica clínica se
@@ -261,13 +262,15 @@ los archivos versionados no conservan outputs ni datos clínicos embebidos.
 
 ## 9. Conexión al MIMIC-IV completo
 
-El demo es local. Para el análisis definitivo se prevé acceso remoto de solo
-lectura a PostgreSQL o una descarga autorizada en el servidor de cálculo.
+El demo es local. Para el análisis definitivo se prevé una descarga autorizada
+desde PhysioNet en el servidor de cálculo o acceso a una instalación PostgreSQL
+propia/institucional. Las credenciales PhysioNet no son credenciales SQL. Véase
+la [`guía de despliegue completo`](full_deployment_guide.md).
 
 1. Copiar `config/mimic.env.example` a `config/mimic.env`.
 2. Completar localmente host, puerto, base, usuario y contraseña.
 3. Exportar las variables de entorno antes de iniciar Jupyter.
-4. Ejecutar primero únicamente la comprobación de acceso y esquemas.
+4. Ejecutar primero únicamente `python scripts/check_mimic_connection.py`.
 
 ```bash
 cp config/mimic.env.example config/mimic.env

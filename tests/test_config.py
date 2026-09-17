@@ -37,5 +37,10 @@ def test_rejects_non_postgresql_database_url():
 
 
 def test_rejects_invalid_port():
-    with pytest.raises(ValueError, match="integer"):
+    with pytest.raises(ValueError, match="integers"):
         MIMICSettings.from_env({"MIMIC_DB_PORT": "not-a-port"})
+
+
+def test_rejects_non_positive_statement_timeout():
+    with pytest.raises(ValueError, match="positive"):
+        MIMICSettings.from_env({"MIMIC_DB_STATEMENT_TIMEOUT_MS": "0"})

@@ -42,7 +42,20 @@ def create_mimic_engine(
         resolved.sqlalchemy_url(),
         pool_pre_ping=pool_pre_ping,
         echo=echo,
+        connect_args={
+            "options": (
+                "-c default_transaction_read_only=on "
+                f"-c statement_timeout={resolved.statement_timeout_ms}"
+            )
+        },
     )
+
+
+def assert_connection_read_only(connection) -> None:
+    """Fail closed unless PostgreSQL confirms the current session is read-only."""
+    value = connection.execute(text("SHOW transaction_read_only")).scalar_one()
+    if str(value).lower() not in {"on", "true", "1"}:
+        raise RuntimeError("PostgreSQL connection is not read-only")
 
 
 def get_table_names(engine: Engine, schema: str) -> tuple[str, ...]:
@@ -58,6 +71,7 @@ def check_mimic_access(
     requirements = DEFAULT_REQUIRED_TABLES if required_tables is None else required_tables
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
+        assert_connection_read_only(connection)
 
     inspector = inspect(engine)
     available = tuple(sorted(inspector.get_schema_names()))

@@ -98,8 +98,9 @@ validado para tomar decisiones clínicas.
 
 ## Inicio rápido
 
-Requisitos: Python 3.10 o posterior, acceso autorizado a MIMIC-IV cargado en
-PostgreSQL y credenciales de solo lectura.
+Requisitos: Python 3.10 o posterior y acceso autorizado a MIMIC-IV. Las
+credenciales PhysioNet sirven para descarga; PostgreSQL es una instalación
+separada propia o institucional y siempre se abre en modo de solo lectura.
 
 El análisis utiliza dos kernels Jupyter: Python para descarga, SQL y pipelines;
 R para visualización con `ggplot2`. El entorno completo está definido en

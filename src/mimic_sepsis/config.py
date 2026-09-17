@@ -27,6 +27,7 @@ class MIMICSettings:
     user: str = "postgres"
     password: str | None = None
     sslmode: str | None = None
+    statement_timeout_ms: int = 60_000
     schemas: tuple[str, ...] = DEFAULT_SCHEMAS
 
     @classmethod
@@ -39,8 +40,11 @@ class MIMICSettings:
         )
         try:
             port = int(env.get("MIMIC_DB_PORT", "5432"))
+            statement_timeout_ms = int(env.get("MIMIC_DB_STATEMENT_TIMEOUT_MS", "60000"))
         except ValueError as exc:
-            raise ValueError("MIMIC_DB_PORT must be an integer") from exc
+            raise ValueError("Database port and statement timeout must be integers") from exc
+        if statement_timeout_ms <= 0:
+            raise ValueError("MIMIC_DB_STATEMENT_TIMEOUT_MS must be positive")
         return cls(
             database_url=env.get("MIMIC_DATABASE_URL") or None,
             host=env.get("MIMIC_DB_HOST", "localhost"),
@@ -49,6 +53,7 @@ class MIMICSettings:
             user=env.get("MIMIC_DB_USER", "postgres"),
             password=env.get("MIMIC_DB_PASSWORD") or None,
             sslmode=env.get("MIMIC_DB_SSLMODE") or None,
+            statement_timeout_ms=statement_timeout_ms,
             schemas=schemas,
         )
 
