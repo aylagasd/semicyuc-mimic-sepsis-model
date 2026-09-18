@@ -1,9 +1,13 @@
 {
   "bootstrap_replicates": 1000,
+  "calibration_epsilon": 1e-06,
   "confidence_level": 0.95,
-  "metrics": ["auroc", "auprc", "brier", "log_loss"],
+  "decision_curve_status": "exploratory_until_clinical_action_is_defined",
+  "exploratory_threshold_probabilities": [0.02, 0.05, 0.1, 0.15, 0.2],
+  "metrics": ["auroc", "auprc", "brier", "log_loss", "calibration_intercept", "calibration_slope"],
+  "operating_threshold_probabilities": [],
   "resampling_unit": "subject_id",
-  "schema_version": 1,
+  "schema_version": 2,
   "seed": 20260909,
   "test_access": "forbidden_during_development"
 }

@@ -24,11 +24,16 @@ def test_report_is_aggregate_and_uses_both_samples():
         _table(1), _table(101),
         feature_columns=("heart_rate_last_24h", "map_min_24h"),
         folds=2, logistic_c=1.0, bootstrap_replicates=10,
-        confidence_level=0.8, seed=42,
+        confidence_level=0.8, seed=42, exploratory_thresholds=(0.1, 0.2),
     )
     assert set(report.sample_flow["sample"]) == {"development_oof", "validation"}
     assert len(report.point_metrics) == 4
     assert len(report.paired_intervals) == 8
+    assert len(report.metric_intervals) == 4 * 10
+    assert len(report.threshold_metrics) == 8
+    assert set(report.decision_curves["strategy"]) == {
+        "reference", "candidate", "treat_all", "treat_none"
+    }
     assert report.paired_intervals["successful_replicates"].between(0, 10).all()
     assert not any(
         column in report.point_metrics for column in ("subject_id", "stay_id")

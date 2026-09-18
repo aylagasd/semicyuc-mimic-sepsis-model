@@ -96,6 +96,11 @@ If recalibration is needed, fit intercept/slope or isotonic calibration using de
 
 Decision-curve analysis across prespecified plausible threshold probabilities is exploratory until a clinical action and harm/benefit tradeoff are defined. Also report alerts per 100 patient-days, proportion of ICU time under alert, median warning time, repeated-alert burden and performance per admission rather than only per row.
 
+La rejilla exploratoria ejecutable está en `config/evaluation.json`. No equivale
+a umbrales operativos: esa lista permanece vacía hasta aprobar una acción
+clínica. La convención binaria es `probabilidad >= umbral`; calibración y
+decision-curve se muestran en el notebook 13 sin acceso al test.
+
 Do not claim benefit from AUROC/AUPRC alone. Thresholds must correspond to an intended action and require prospective evaluation.
 
 ## 9. Comparisons and uncertainty
