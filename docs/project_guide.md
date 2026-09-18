@@ -20,6 +20,9 @@ el desarrollo. Resume qué pregunta se intenta responder, cómo fluye la
 información, qué decisiones están cerradas, cómo reproducir el estado actual y
 dónde encontrar el detalle técnico.
 
+Las decisiones aún pendientes de aprobación están reunidas, con propuestas y
+campos de firma, en [`clinical_freeze_dossier.md`](clinical_freeze_dossier.md).
+
 ## 2. La pregunta de investigación
 
 La pregunta principal prevista es:

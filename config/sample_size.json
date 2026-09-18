@@ -1,0 +1,11 @@
+{
+  "anticipated_cox_snell_r2": null,
+  "cluster_unit": "subject_id",
+  "formal_method": "Riley_et_al_2019_binary_outcome",
+  "primary_horizon_hours": 6,
+  "primary_target": "sepsis3",
+  "risk_precision_margin": 0.05,
+  "schema_version": 1,
+  "target_global_shrinkage": 0.9,
+  "test_access": "forbidden_for_planning"
+}

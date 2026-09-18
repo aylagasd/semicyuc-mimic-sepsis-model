@@ -47,7 +47,11 @@ All stays belonging to one `subject_id` must remain in one partition.
 
 ### Primary validation design
 
-Use a **temporal split** based on an admission-time ordering that is meaningful within the deidentified dataset/version, with earlier patients for development and the latest approximately 20% for a locked test set. If shifted dates make cross-patient calendar ordering unsuitable in the installed version, use a patient-grouped random 70/15/15 split as primary and treat temporal validation as infeasible; document this before analysis.
+Use the frozen patient-grouped random 70/15/15 split in `config/splits.json`.
+MIMIC shifts dates independently between patients, so cross-patient calendar
+ordering is not treated as a valid temporal split. Temporal validation requires
+a source with a common real calendar and is deferred to an appropriate external
+cohort; it must not be simulated by sorting shifted MIMIC dates.
 
 - Development set: model specification and fitting.
 - Inner patient-grouped cross-validation: hyperparameter tuning.
@@ -123,12 +127,12 @@ Subgroups with few events are reported descriptively with uncertainty; no unsupp
 ## 12. Decisions pending before extraction/modeling
 
 - [ ] Freeze primary population rule (first stay/admission versus all stays).
-- [ ] Confirm whether a valid cross-patient temporal ordering exists for the installed MIMIC-IV release.
+- [x] Treat cross-patient temporal ordering as invalid in MIMIC-IV because dates are shifted independently; use the frozen patient-grouped split.
 - [x] Freeze primary 6-hour horizon, 24-hour lookback, hourly landmarks and
   outcome boundary `(L,L+H]` in `config/landmarks.json`.
 - [ ] Define minimum predictor set, transforms and whether SOFA/treatments enter the primary model.
 - [ ] Select landmark weighting/sampling and competing-event strategy.
 - [x] Implement the prespecified 3/6/12/24-hour horizon and 6/12/24-hour lookback engineering grid without test access.
-- [ ] Perform formal sample-size calculation after phenotype counts are available.
+- [ ] Complete `config/sample_size.json` and the formal Riley calculation after full-development phenotype counts are available; see `clinical_freeze_dossier.md`.
 - [ ] Define actionable thresholds and the intended clinical response before decision-curve interpretation.
 - [x] Freeze locked-test access rules and start the append-only access log in `docs/test_access_log.md`.
