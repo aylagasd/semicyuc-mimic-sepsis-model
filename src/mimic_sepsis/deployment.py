@@ -10,6 +10,33 @@ import shutil
 from typing import Mapping
 
 
+@dataclass(frozen=True)
+class ProtocolGateReport:
+    phase: str
+    ready: bool
+    blockers: tuple[str, ...]
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def preflight_protocol_status(config: Mapping, phase: str) -> ProtocolGateReport:
+    """Require every decision declared for a phase to be explicitly frozen."""
+    requirements = config.get("phase_requirements", {})
+    decisions = config.get("decisions", {})
+    if phase not in requirements:
+        raise ValueError(f"Unknown protocol phase: {phase}")
+    required = requirements[phase]
+    if not isinstance(required, list) or not all(isinstance(item, str) for item in required):
+        raise ValueError("Protocol phase requirements must be a list of decision IDs")
+    blockers = tuple(
+        f"{decision}:{decisions.get(decision, 'missing')}"
+        for decision in required
+        if decisions.get(decision) != "frozen"
+    )
+    return ProtocolGateReport(phase=phase, ready=not blockers, blockers=blockers)
+
+
 REQUIRED_FILE_COLUMNS: Mapping[str, tuple[str, ...]] = {
     "hosp/patients.csv.gz": ("subject_id", "anchor_age", "anchor_year"),
     "hosp/admissions.csv.gz": ("subject_id", "hadm_id"),

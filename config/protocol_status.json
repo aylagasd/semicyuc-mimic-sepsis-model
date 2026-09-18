@@ -1,0 +1,16 @@
+{
+  "decisions": {
+    "D002": "provisional",
+    "D004": "provisional",
+    "D010": "provisional",
+    "D011": "pending",
+    "D014": "provisional",
+    "D016": "provisional"
+  },
+  "phase_requirements": {
+    "phenotype": ["D002", "D004", "D010", "D011"],
+    "model": ["D002", "D004", "D010", "D011", "D014", "D016"],
+    "test": ["D002", "D004", "D010", "D011", "D014", "D016"]
+  },
+  "schema_version": 1
+}

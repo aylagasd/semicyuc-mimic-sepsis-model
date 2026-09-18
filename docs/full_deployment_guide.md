@@ -56,6 +56,19 @@ con número de filas, esquema, versión, hash de configuración y SHA-256. Con
 `--resume` solo se reutiliza un artefacto cuyo hash y configuración coincidan.
 La salida del comando contiene exclusivamente recuentos y hashes agregados.
 
+Antes de construir el fenotipo completo debe pasar además la puerta de
+protocolo:
+
+```bash
+python scripts/preflight_protocol.py phenotype
+```
+
+Mientras una decisión requerida siga `pending` o `provisional`, el comando
+devuelve código 2 y enumera únicamente IDs/estados. El orquestador aplica esta
+misma puerta automáticamente para cualquier versión distinta del Demo 2.2.
+Una aprobación clínica debe actualizar en el mismo commit el acta, el registro
+de decisiones y `config/protocol_status.json`; no basta editar solo el JSON.
+
 ## 3. PostgreSQL institucional o propio
 
 Copiar `config/mimic.env.example` a un fichero local ignorado, completar sus

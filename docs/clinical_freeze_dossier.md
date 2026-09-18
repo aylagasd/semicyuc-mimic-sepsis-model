@@ -12,6 +12,10 @@ No se usarán métricas del test para resolver ninguna opción. El demo sirve
 exclusivamente para verificar ingeniería y mostrar qué información deberá
 revisarse en development.
 
+El estado ejecutable se refleja en `config/protocol_status.json`. El preflight
+de fase no sustituye esta acta: solo impide que una decisión no firmada pase
+silenciosamente al análisis completo.
+
 ## 2. Propuestas que requieren firma
 
 | ID | Propuesta primaria para aprobar | Sensibilidades preespecificadas | Revisor mínimo | Estado |
@@ -103,4 +107,3 @@ Para cada fila de la sección 2 debe registrarse:
 
 Una firma no autoriza uso clínico. Solo permite pasar a development/validation
 retrospectivos bajo el protocolo versionado.
-
