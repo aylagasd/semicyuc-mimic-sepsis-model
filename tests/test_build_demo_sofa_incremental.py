@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 _SCRIPT = Path(__file__).parents[1] / "scripts" / "build_demo_sofa_incremental.py"
 _SPEC = importlib.util.spec_from_file_location("build_demo_sofa_incremental", _SCRIPT)
@@ -162,7 +163,8 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
     })
     episodes = pairs.assign(stay_id=100, sepsis3=True)
     monkeypatch.setattr(cli, "read_infection_tables", lambda data_dir: {
-        "prescriptions": pd.DataFrame(), "emar": pd.DataFrame(),
+        "prescriptions": pd.DataFrame(columns=["subject_id", "hadm_id"]),
+        "emar": pd.DataFrame(columns=["subject_id", "hadm_id"]),
         "microbiologyevents": pd.DataFrame({
             "subject_id": [1], "hadm_id": [10], "micro_specimen_id": [30],
             "charttime": ["2100-01-01"], "chartdate": [None],
@@ -193,6 +195,41 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
         "septic_shock_stays",
     ):
         assert store.validate(name, expected_config=config).rows == 1
+
+
+def test_label_stage_excludes_infection_sources_outside_cohort(tmp_path, monkeypatch):
+    config = cli.canonical_config()
+    run_root = tmp_path / "run"
+    cohort = pd.DataFrame({
+        "subject_id": [1], "hadm_id": [10], "stay_id": [100],
+        "intime": ["2100-01-01"], "outtime": ["2100-01-02"],
+    })
+    cli.ArtifactStore(run_root / "00_cohort").write_dataframe(
+        "cohort_stays", cohort, data_version="2.2", code_version="test", config=config,
+    )
+    cli.ArtifactStore(run_root / "30_score").write_dataframe(
+        "sofa_hourly", pd.DataFrame({"stay_id": [100], "endtime": ["2100-01-01"]}),
+        data_version="2.2", code_version="test", config=config,
+    )
+    outside = pd.DataFrame({"subject_id": [2], "hadm_id": [20]})
+    monkeypatch.setattr(cli, "read_infection_tables", lambda data_dir: {
+        "prescriptions": outside.assign(pharmacy_id=1),
+        "emar": outside.assign(pharmacy_id=1),
+        "microbiologyevents": outside.assign(
+            micro_specimen_id=1, charttime="2100-01-01", chartdate=None,
+            spec_type_desc="BLOOD CULTURE",
+        ),
+    })
+    monkeypatch.setattr(cli, "load_antimicrobial_rules", lambda path: pd.DataFrame())
+    def classify(frame, rules):
+        assert frame.empty
+        raise RuntimeError("scope verified")
+    monkeypatch.setattr(cli, "classify_prescriptions", classify)
+    with pytest.raises(RuntimeError, match="scope verified"):
+        cli.build_label_stage(
+            data_dir=tmp_path, run_root=run_root, config=config,
+            code_version="test", resume=False,
+        )
 
 
 def test_landmark_stage_uses_one_patient_partition_map(tmp_path, monkeypatch):

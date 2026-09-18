@@ -87,15 +87,27 @@ lee filas de pacientes. Su salida nunca incluye URL, host, usuario o contraseña
 | Manifiestos, landmarks, particiones y features | listo | contrato reutilizable |
 | Lectura monolítica con pandas | aceptable | **no ejecutar** |
 | Extracción CSV fuera de memoria con pushdown | validada | implementada; falta benchmark completo |
-| SOFA, infección y features sobre Parquet reducido | listo en pandas/demo | pendiente de backend escalable |
+| SOFA, infección, landmarks y features por lotes | equivalencia exacta | implementado; falta benchmark completo |
 | Modelado y bootstrap | prueba técnica | ejecutar en servidor de cálculo |
 
 El script `build_demo_sofa_incremental.py` está diseñado deliberadamente para
 el demo. No debe apuntarse a los CSV completos: cargaría tablas masivas en
-memoria. `extract_full_mimic.py` resuelve la primera reducción escalable, pero
-todavía no autoriza ejecutar los pasos pandas posteriores sobre todo el Parquet:
-SOFA, infección, landmarks y features necesitan su implementación SQL/chunked
-y validación de equivalencia antes del despliegue completo.
+memoria. `extract_full_mimic.py` resuelve la reducción fuera de memoria. Las
+etapas posteriores se ejecutan por lotes deterministas de estancias, sin cargar
+los Parquet completos en pandas:
+
+```bash
+python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
+  --output-root /ruta/derivados/full_pipeline \
+  --batch-size 250 \
+  --resume
+```
+
+Cada derivado encadena hashes de sus entradas concretas; cambiar una parte
+invalida sus descendientes. El tamaño de lote debe ajustarse con una prueba de
+memoria en el servidor. La equivalencia de contenido se comprobó sobre Demo
+2.2 con `verify_demo_chunked_equivalence.py`; ese verificador rechaza otras
+versiones deliberadamente y no debe utilizarse para abrir el test completo.
 
 ## 5. Puertas antes de ejecutar el conjunto completo
 

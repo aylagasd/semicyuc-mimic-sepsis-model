@@ -10,7 +10,8 @@ su transportabilidad a cohortes españolas vinculadas a SEMICYUC.
 El proyecto se encuentra todavía en desarrollo metodológico. Ya construye una
 cohorte adulta auditable, sospecha de infección, SOFA horario, etiquetas
 retrospectivas Sepsis-3/shock, landmarks futuros y matrices temporales sobre
-MIMIC-IV Demo. Todavía no existe un modelo final,
+MIMIC-IV Demo. El mismo contrato dispone de un recorrido por lotes para los CSV
+completos, validado por equivalencia exacta sobre el demo. Todavía no existe un modelo final,
 una validación externa ni autorización para uso asistencial. Nada de este
 repositorio debe emplearse para diagnosticar, tratar o generar alertas clínicas.
 
@@ -164,12 +165,14 @@ Los módulos principales son:
 - `artifacts.py`: Parquet atómico, manifiestos, hashes y validación;
 - `db.py` y `config.py`: conexión PostgreSQL impuesta como solo lectura;
 - `deployment.py`: preflight de la distribución completa sin leer pacientes.
+- `full_extract.py` y `chunked_*.py`: reducción fuera de memoria y recorrido
+  acotado por lotes para MIMIC-IV completo.
 
-DuckDB se usa como motor local para inspeccionar CSV/Parquet y validar
-artefactos sin cargar una base de datos completa. La lógica clínica se
-implementa con funciones de Python/pandas probadas. En el servidor completo,
-PostgreSQL y SQL versionado asumirán la extracción pesada; DuckDB no es un
-requisito conceptual del modelo.
+DuckDB se usa como motor local fuera de memoria para reducir CSV, seleccionar
+las filas de cada lote, inspeccionar Parquet y validar artefactos. La lógica
+clínica se implementa con funciones Python/pandas probadas sobre lotes acotados.
+PostgreSQL sigue siendo un backend alternativo para una instalación
+institucional, pero no es obligatorio para ejecutar la distribución CSV.
 
 ## 7. Recorrido de notebooks
 

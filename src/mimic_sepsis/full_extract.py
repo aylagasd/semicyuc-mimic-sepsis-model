@@ -76,7 +76,7 @@ class FullCSVExtractor:
             "backend": "duckdb-out-of-core-csv",
             "cohort_policy": "first_per_admission",
             "data_version": self.data_version,
-            "extractor_schema_version": 3,
+            "extractor_schema_version": 5,
             "itemids": {
                 "chartevents": sorted(CHARTEVENT_ITEMIDS),
                 "labevents": sorted(LABEVENT_ITEMIDS),
@@ -207,14 +207,12 @@ class FullCSVExtractor:
                     SELECT e.stay_id, e.itemid, e.charttime, e.value, e.valuenum
                     FROM chartevents e JOIN cohort c USING (stay_id)
                     WHERE e.itemid IN ({_ids(CHARTEVENT_ITEMIDS)})
-                      AND e.charttime >= c.intime AND e.charttime < c.outtime
                 """,
                 "labevents_reduced": f"""
                     SELECT e.subject_id, e.hadm_id, e.itemid, e.charttime,
                            e.storetime, e.valuenum, e.valueuom
                     FROM labevents e JOIN cohort c USING (subject_id, hadm_id)
                     WHERE e.itemid IN ({_ids(LABEVENT_ITEMIDS)})
-                      AND e.charttime >= c.intime AND e.charttime < c.outtime
                 """,
                 "inputevents_reduced": f"""
                     SELECT e.stay_id, e.itemid, e.starttime, e.endtime,

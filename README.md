@@ -93,7 +93,9 @@ Proyecto SEMICYUC
 ## Estado del proyecto
 
 El repositorio dispone ya de fenotipo, landmarks, características temporales,
-baselines técnicos y evaluación agrupada reproducible sobre el demo. El código es exclusivamente para investigación y no está
+baselines técnicos y evaluación agrupada reproducible sobre el demo. Incluye
+además un pipeline por lotes, equivalente al recorrido monolítico del demo,
+para ejecutar los CSV completos sin cargarlos enteros en pandas. El código es exclusivamente para investigación y no está
 validado para tomar decisiones clínicas.
 
 ## Inicio rápido
@@ -159,6 +161,20 @@ El usuario debe disponer de acceso aprobado a esa versión. No usar
 `--password`, no compartir las credenciales y no copiar los datos descargados al
 repositorio. Antes de ejecutar la descarga completa se confirmarán espacio,
 versión y backend del servidor de cálculo.
+
+Tras descargar MIMIC-IV completo, el recorrido CSV reproducible es:
+
+```bash
+python scripts/preflight_mimic_files.py /ruta/mimiciv/3.1
+python scripts/extract_full_mimic.py /ruta/mimiciv/3.1 \
+  --data-version 3.1 --output-dir /ruta/derivados/full_extract --resume
+python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
+  --output-root /ruta/derivados/full_pipeline --batch-size 250 --resume
+```
+
+Los datos y derivados permanecen fuera de Git. Consulte
+[`docs/full_deployment_guide.md`](docs/full_deployment_guide.md) antes de usar
+el servidor de cálculo.
 
 Para validar el módulo sin una base MIMIC-IV real:
 

@@ -42,7 +42,7 @@ from mimic_sepsis.sofa_hourly import build_icustay_hourly_grid
 DATA_VERSION = "2.2"
 MIMIC_CODE_VERSION = "v2.4.0"
 MIMIC_CODE_COMMIT = "570ef01"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 RAW_TABLES = {
     "icustays": "icu/icustays.csv.gz",
     "chartevents": "icu/chartevents.csv.gz",
@@ -280,6 +280,14 @@ def build_label_stage(
     sofa = score_store.read_dataframe("sofa_hourly", expected_config=config)
     stays = cohort_store.read_dataframe("cohort_stays", expected_config=config)
     sources = read_infection_tables(data_dir)
+    cohort_admissions = stays[["subject_id", "hadm_id"]].drop_duplicates()
+    for name in sources:
+        sources[name] = sources[name].merge(
+            cohort_admissions,
+            on=["subject_id", "hadm_id"],
+            how="inner",
+            validate="many_to_one",
+        )
 
     repo = Path(__file__).resolve().parents[1]
     rules = load_antimicrobial_rules(repo / "config" / "antimicrobial_rules.csv")
