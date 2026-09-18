@@ -21,10 +21,10 @@ entradas, salidas, versión de datos, semilla y criterios de finalización.
 | 10 | `10_model_development.ipynb` | Python + R | Ensamblar el horizonte primario y validar referencias de prevalencia/regresión clínica sin abrir el test. |
 | 11 | `11_model_evaluation.ipynb` | Python + R | Evaluación interna y comparación pareada con bootstrap por paciente; figura `ggplot2`, sin abrir test. |
 | 12 | `12_sensitivity_and_subgroups.ipynb` | Python + R | Sensibilidades de cohorte, horizonte y lookback; subgrupos aplazados por tamaño, figura `ggplot2`. |
-| 13 | `13_final_report.ipynb` | R | Tablas y figuras finales reproducibles. |
+| 13 | `13_final_report.ipynb` | Python + R | Informe agregado reproducible previo al test; tabla Python y figura `ggplot2`. |
 
-Los nombres posteriores al 12 son el plan inicial y se crearán cuando exista su
-lógica y prueba correspondiente; no se añadirán notebooks vacíos como marcador.
+La secuencia 00–13 está implementada. El paso 13 sigue siendo un informe previo
+al test hasta ejecutar MIMIC-IV completo y congelar el modelo.
 
 ## Contrato de ejecución
 
