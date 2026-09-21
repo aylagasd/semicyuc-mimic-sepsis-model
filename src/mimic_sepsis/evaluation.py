@@ -163,6 +163,82 @@ def decision_curve(
     return pd.DataFrame(rows)
 
 
+def operational_alert_metrics(
+    table: pd.DataFrame,
+    probability: Sequence[float],
+    *,
+    threshold: float,
+    landmark_interval_hours: float = 1.0,
+) -> dict[str, float]:
+    """Summarize alert rate, repeated episodes and event warning time.
+
+    Rows must represent one prediction horizon on a regular landmark grid.
+    Warning time is calculated only for event stays with at least one alert on
+    an outcome-positive landmark, so an alert outside the evaluated horizon
+    cannot be credited. Absence of such an alert is reported separately rather
+    than imputed as zero lead time.
+    """
+    required = {"subject_id", "stay_id", "landmark_time", "outcome", "event_time"}
+    missing = sorted(required - set(table.columns))
+    if missing:
+        raise ValueError(f"table is missing columns: {', '.join(missing)}")
+    if landmark_interval_hours <= 0:
+        raise ValueError("landmark_interval_hours must be positive")
+    y, p = _binary_arrays(table["outcome"], probability)
+    if not 0 < threshold < 1:
+        raise ValueError("threshold must be in (0, 1)")
+    working = table[[
+        "subject_id", "stay_id", "landmark_time", "event_time"
+    ]].copy()
+    working["landmark_time"] = pd.to_datetime(working["landmark_time"], errors="raise")
+    working["event_time"] = pd.to_datetime(working["event_time"], errors="coerce")
+    working["alert"] = p >= threshold
+    working["outcome"] = y
+    working = working.sort_values(["stay_id", "landmark_time"])
+    expected_gap = pd.to_timedelta(landmark_interval_hours, unit="h")
+    previous_alert = working.groupby("stay_id")["alert"].shift(fill_value=False)
+    previous_time = working.groupby("stay_id")["landmark_time"].shift()
+    discontinuity = previous_time.isna() | (
+        working["landmark_time"] - previous_time > expected_gap
+    )
+    episode_start = working["alert"] & (~previous_alert | discontinuity)
+
+    event_rows = working.loc[working["event_time"].notna()].copy()
+    event_stays = event_rows[["stay_id", "event_time"]].drop_duplicates()
+    if event_stays["stay_id"].duplicated().any():
+        raise ValueError("each stay must have at most one event time")
+    lead_hours = []
+    for event in event_stays.itertuples(index=False):
+        alerts = working.loc[
+            working["stay_id"].eq(event.stay_id)
+            & working["alert"]
+            & working["outcome"].eq(1)
+            & working["landmark_time"].lt(event.event_time),
+            "landmark_time",
+        ]
+        if not alerts.empty:
+            lead_hours.append(
+                (event.event_time - alerts.min()).total_seconds() / 3600
+            )
+    patient_days = len(working) * landmark_interval_hours / 24
+    alerts = int(working["alert"].sum())
+    false_alerts = int((working["alert"] & working["outcome"].eq(0)).sum())
+    return {
+        "alerts": float(alerts),
+        "alerts_per_100_patient_days": float(alerts / patient_days * 100),
+        "alert_fraction": float(working["alert"].mean()),
+        "alert_episodes": float(episode_start.sum()),
+        "patients_alerted": float(working.loc[working["alert"], "subject_id"].nunique()),
+        "stays_alerted": float(working.loc[working["alert"], "stay_id"].nunique()),
+        "event_stays": float(len(event_stays)),
+        "event_stays_alerted": float(len(lead_hours)),
+        "median_warning_hours": float(np.median(lead_hours)) if lead_hours else np.nan,
+        "false_alert_fraction": (
+            float(false_alerts / alerts) if alerts else np.nan
+        ),
+    }
+
+
 def _validate_inputs(
     table: pd.DataFrame, probability: Sequence[float], name: str
 ) -> np.ndarray:

@@ -357,9 +357,10 @@ Los siguientes hitos continúan abiertos:
 - auditoría clínica final del listado antimicrobiano y alcance de cultivos;
 - criterio de cobertura mínima para episodios SOFA;
 - revisión clínica del proxy de shock séptico y sensibilidades de fluidos/MAP;
-- partición por paciente y cálculo formal de tamaño muestral;
+- cálculo formal del tamaño muestral con los recuentos del conjunto completo;
 - congelación del conjunto primario, regresión penalizada y gradient boosting;
-- calibración ampliada, utilidad clínica y subgrupos;
+- repetición en el conjunto completo de calibración, utilidad clínica y
+  subgrupos ya implementados y validados técnicamente en el demo;
 - ejecución sobre MIMIC-IV completo y validación externa.
 
 ## 14. Mapa de lectura recomendado
@@ -372,7 +373,7 @@ Una revisión externa puede seguir este orden:
 4. [`sepsis_definition.md`](sepsis_definition.md);
 5. [`modeling_strategy.md`](modeling_strategy.md);
 6. [`variable_dictionary.md`](variable_dictionary.md);
-7. [`notebooks/README.md`](../notebooks/README.md) y notebooks 00–12;
+7. [`notebooks/README.md`](../notebooks/README.md) y notebooks 00–13;
 8. tests correspondientes antes de revisar la implementación clínica.
 
 Para detalles de ingeniería de SOFA y almacenamiento:

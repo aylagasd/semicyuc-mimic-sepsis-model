@@ -1,0 +1,9 @@
+{
+  "administrative_category_warning": "Recorded categories are workflow/social descriptors, not biological constructs.",
+  "columns": ["age_group", "gender", "race", "admission_type", "first_careunit"],
+  "minimum_events": 20,
+  "minimum_nonevents": 20,
+  "privacy_minimum_cell": 10,
+  "schema_version": 1,
+  "test_access": "forbidden_during_development"
+}

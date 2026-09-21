@@ -9,13 +9,15 @@ import pandas as pd
 
 from .evaluation import (
     calibration_metrics, decision_curve, patient_cluster_bootstrap_comparison,
-    patient_cluster_bootstrap_estimates, percentile_intervals, threshold_metrics,
+    operational_alert_metrics, patient_cluster_bootstrap_estimates,
+    percentile_intervals, threshold_metrics,
 )
 from .modeling import (
     binary_metrics, equal_patient_weights, grouped_cross_validation,
     grouped_prevalence_cross_validation, make_logistic_pipeline,
     patient_weighted_event_rate,
 )
+from .subgroups import attach_audit_subgroups, subgroup_performance
 
 
 @dataclass(frozen=True)
@@ -26,6 +28,7 @@ class DevelopmentReport:
     metric_intervals: pd.DataFrame
     threshold_metrics: pd.DataFrame
     decision_curves: pd.DataFrame
+    subgroup_performance: pd.DataFrame
 
 
 def build_development_report(
@@ -39,6 +42,11 @@ def build_development_report(
     confidence_level: float,
     seed: int,
     exploratory_thresholds: Sequence[float] = (),
+    cohort: pd.DataFrame | None = None,
+    subgroup_columns: Sequence[str] = (),
+    subgroup_minimum_events: int = 20,
+    subgroup_minimum_nonevents: int = 20,
+    privacy_minimum_cell: int = 10,
 ) -> DevelopmentReport:
     """Compare prevalence and clinical baseline without reading locked test."""
     columns = list(feature_columns)
@@ -56,12 +64,17 @@ def build_development_report(
         candidate_oof.rename(columns={"probability": "candidate"}),
         on=keys, validate="one_to_one",
     )
+    oof = oof.merge(
+        development[["subject_id", "hadm_id", "stay_id", "landmark_time", "event_time"]],
+        on=["subject_id", "hadm_id", "stay_id", "landmark_time"],
+        how="left", validate="one_to_one",
+    )
     pipeline.fit(
         development[columns], development["outcome"],
         model__sample_weight=equal_patient_weights(development),
     )
     validation_predictions = validation[
-        ["subject_id", "hadm_id", "stay_id", "landmark_time", "outcome"]
+        ["subject_id", "hadm_id", "stay_id", "landmark_time", "event_time", "outcome"]
     ].copy()
     validation_predictions["reference"] = patient_weighted_event_rate(development)
     validation_predictions["candidate"] = pipeline.predict_proba(
@@ -77,6 +90,7 @@ def build_development_report(
     metric_intervals = []
     operating = []
     curves = []
+    subgroups = []
     for offset, (sample, frame) in enumerate(samples.items()):
         flow.append({
             "sample": sample,
@@ -108,6 +122,9 @@ def build_development_report(
                     **threshold_metrics(
                         frame["outcome"], frame[model], threshold=float(threshold)
                     ),
+                    **operational_alert_metrics(
+                        frame, frame[model], threshold=float(threshold)
+                    ),
                 })
             curve = decision_curve(
                 frame["outcome"], frame[model], thresholds=exploratory_thresholds
@@ -120,6 +137,17 @@ def build_development_report(
                 curve.loc[curve["strategy"].eq("model"), "strategy"] = model
                 curve["sample"] = sample
                 curves.append(curve)
+            if cohort is not None and subgroup_columns:
+                audited = attach_audit_subgroups(frame, cohort)
+                subgroup = subgroup_performance(
+                    audited, audited[model], subgroup_columns=subgroup_columns,
+                    minimum_events=subgroup_minimum_events,
+                    minimum_nonevents=subgroup_minimum_nonevents,
+                    privacy_minimum_cell=privacy_minimum_cell,
+                )
+                subgroup["sample"] = sample
+                subgroup["model"] = model
+                subgroups.append(subgroup)
         bootstrap = patient_cluster_bootstrap_comparison(
             frame, frame["reference"], frame["candidate"],
             replicates=bootstrap_replicates, seed=seed + offset,
@@ -137,5 +165,8 @@ def build_development_report(
         threshold_metrics=pd.DataFrame(operating),
         decision_curves=pd.concat(curves, ignore_index=True) if curves else pd.DataFrame(
             columns=["threshold", "strategy", "net_benefit", "sample"]
+        ),
+        subgroup_performance=(
+            pd.concat(subgroups, ignore_index=True) if subgroups else pd.DataFrame()
         ),
     )

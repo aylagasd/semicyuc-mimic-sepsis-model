@@ -38,8 +38,11 @@ def preflight_protocol_status(config: Mapping, phase: str) -> ProtocolGateReport
 
 
 REQUIRED_FILE_COLUMNS: Mapping[str, tuple[str, ...]] = {
-    "hosp/patients.csv.gz": ("subject_id", "anchor_age", "anchor_year"),
-    "hosp/admissions.csv.gz": ("subject_id", "hadm_id"),
+    "hosp/patients.csv.gz": ("subject_id", "gender", "anchor_age", "anchor_year"),
+    "hosp/admissions.csv.gz": (
+        "subject_id", "hadm_id", "admission_type", "admission_location",
+        "insurance", "race",
+    ),
     "hosp/labevents.csv.gz": (
         "subject_id", "hadm_id", "itemid", "charttime", "storetime", "valuenum"
     ),
@@ -48,7 +51,9 @@ REQUIRED_FILE_COLUMNS: Mapping[str, tuple[str, ...]] = {
     "hosp/microbiologyevents.csv.gz": (
         "subject_id", "hadm_id", "micro_specimen_id", "charttime"
     ),
-    "icu/icustays.csv.gz": ("subject_id", "hadm_id", "stay_id", "intime", "outtime"),
+    "icu/icustays.csv.gz": (
+        "subject_id", "hadm_id", "stay_id", "first_careunit", "intime", "outtime"
+    ),
     "icu/chartevents.csv.gz": ("subject_id", "hadm_id", "stay_id", "itemid", "charttime"),
     "icu/inputevents.csv.gz": ("subject_id", "hadm_id", "stay_id", "itemid", "starttime"),
     "icu/outputevents.csv.gz": ("subject_id", "hadm_id", "stay_id", "itemid", "charttime"),

@@ -25,6 +25,12 @@ class CohortResult:
     flow: dict[str, int]
 
 
+PATIENT_AUDIT_COLUMNS = ("gender",)
+ADMISSION_AUDIT_COLUMNS = (
+    "admission_type", "admission_location", "insurance", "race",
+)
+
+
 def _require_columns(frame: pd.DataFrame, name: str, columns: set[str]) -> None:
     missing = sorted(columns - set(frame.columns))
     if missing:
@@ -67,15 +73,21 @@ def build_adult_icu_cohort(
     stays = icustays.copy()
     stays["intime"] = pd.to_datetime(stays["intime"], errors="coerce")
     stays["outtime"] = pd.to_datetime(stays["outtime"], errors="coerce")
+    patient_columns = ["subject_id", "anchor_age", "anchor_year"] + [
+        column for column in PATIENT_AUDIT_COLUMNS if column in patients
+    ]
     stays = stays.merge(
-        patients[["subject_id", "anchor_age", "anchor_year"]],
+        patients[patient_columns],
         on="subject_id",
         how="left",
         validate="many_to_one",
         indicator="patient_link",
     )
+    admission_columns = ["subject_id", "hadm_id"] + [
+        column for column in ADMISSION_AUDIT_COLUMNS if column in admissions
+    ]
     stays = stays.merge(
-        admissions[["subject_id", "hadm_id"]].drop_duplicates(),
+        admissions[admission_columns].drop_duplicates(["subject_id", "hadm_id"]),
         on=["subject_id", "hadm_id"],
         how="left",
         validate="many_to_one",

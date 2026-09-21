@@ -121,6 +121,9 @@ invalida sus descendientes. El tamaño de lote debe ajustarse con una prueba de
 memoria en el servidor. La equivalencia de contenido se comprobó sobre Demo
 2.2 con `verify_demo_chunked_equivalence.py`; ese verificador rechaza otras
 versiones deliberadamente y no debe utilizarse para abrir el test completo.
+Al pasar `--full-extract-root`, compara además el esquema y multiconjunto de
+los descriptores comunes de cohorte entre la extracción fuera de memoria y el
+recorrido monolítico.
 
 ## 5. Puertas antes de ejecutar el conjunto completo
 

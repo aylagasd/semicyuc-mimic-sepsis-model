@@ -5,6 +5,7 @@ import pytest
 from mimic_sepsis.evaluation import (
     calibration_metrics,
     decision_curve,
+    operational_alert_metrics,
     patient_cluster_bootstrap_comparison,
     patient_cluster_bootstrap_estimates,
     percentile_intervals,
@@ -99,6 +100,81 @@ def test_decision_curve_matches_manual_net_benefit_and_includes_references():
     assert set(result["strategy"]) == {"model", "treat_all", "treat_none"}
     model = result.loc[result["strategy"].eq("model"), "net_benefit"].item()
     assert model == pytest.approx(0.0)  # TP/n=.25, FP/n=.25, odds=.5/.5
+
+
+def test_operational_alert_metrics_count_episodes_and_warning_time():
+    table = pd.DataFrame({
+        "subject_id": [1, 1, 1, 2, 2],
+        "stay_id": [10, 10, 10, 20, 20],
+        "landmark_time": pd.to_datetime([
+            "2100-01-01 06:00", "2100-01-01 07:00", "2100-01-01 09:00",
+            "2100-01-02 06:00", "2100-01-02 07:00",
+        ]),
+        "event_time": pd.to_datetime([
+            "2100-01-01 10:00", "2100-01-01 10:00", "2100-01-01 10:00",
+            None, None,
+        ]),
+        "outcome": [1, 1, 1, 0, 0],
+    })
+    result = operational_alert_metrics(
+        table, [0.6, 0.7, 0.8, 0.1, 0.6], threshold=0.5
+    )
+    assert result["alerts"] == 4
+    assert result["alert_episodes"] == 3  # gap in stay 10 starts a new episode
+    assert result["event_stays"] == 1
+    assert result["event_stays_alerted"] == 1
+    assert result["median_warning_hours"] == pytest.approx(4)
+    assert result["alerts_per_100_patient_days"] == pytest.approx(1920)
+
+
+def test_operational_metrics_do_not_invent_warning_for_missed_event():
+    table = pd.DataFrame({
+        "subject_id": [1], "stay_id": [10],
+        "landmark_time": pd.to_datetime(["2100-01-01 06:00"]),
+        "event_time": pd.to_datetime(["2100-01-01 07:00"]), "outcome": [1],
+    })
+    result = operational_alert_metrics(table, [0.1], threshold=0.5)
+    assert result["event_stays_alerted"] == 0
+    assert np.isnan(result["median_warning_hours"])
+
+
+def test_alert_outside_prediction_horizon_is_not_credited_as_warning():
+    table = pd.DataFrame({
+        "subject_id": [1], "stay_id": [10],
+        "landmark_time": pd.to_datetime(["2100-01-01 06:00"]),
+        "event_time": pd.to_datetime(["2100-01-01 20:00"]), "outcome": [0],
+    })
+    result = operational_alert_metrics(table, [0.9], threshold=0.5)
+    assert result["event_stays"] == 1
+    assert result["event_stays_alerted"] == 0
+    assert np.isnan(result["median_warning_hours"])
+
+
+def test_false_alert_fraction_uses_alerts_as_denominator():
+    table = pd.DataFrame({
+        "subject_id": [1, 1, 2, 2], "stay_id": [10, 10, 20, 20],
+        "landmark_time": pd.to_datetime([
+            "2100-01-01 06:00", "2100-01-01 07:00",
+            "2100-01-01 06:00", "2100-01-01 07:00",
+        ]),
+        "event_time": pd.to_datetime([
+            "2100-01-01 08:00", "2100-01-01 08:00", None, None,
+        ]),
+        "outcome": [1, 1, 0, 0],
+    })
+    result = operational_alert_metrics(table, [0.8, 0.1, 0.9, 0.1], threshold=0.5)
+    assert result["alerts"] == 2
+    assert result["false_alert_fraction"] == pytest.approx(0.5)
+
+
+def test_false_alert_fraction_is_undefined_without_alerts():
+    table = pd.DataFrame({
+        "subject_id": [1], "stay_id": [10],
+        "landmark_time": pd.to_datetime(["2100-01-01 06:00"]),
+        "event_time": pd.to_datetime([None]), "outcome": [0],
+    })
+    result = operational_alert_metrics(table, [0.1], threshold=0.5)
+    assert np.isnan(result["false_alert_fraction"])
 
 
 @pytest.mark.parametrize("threshold", [0, 1, -0.1, 1.1])

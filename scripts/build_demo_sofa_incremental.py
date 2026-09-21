@@ -42,7 +42,7 @@ from mimic_sepsis.sofa_hourly import build_icustay_hourly_grid
 DATA_VERSION = "2.2"
 MIMIC_CODE_VERSION = "v2.4.0"
 MIMIC_CODE_COMMIT = "570ef01"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 RAW_TABLES = {
     "icustays": "icu/icustays.csv.gz",
     "chartevents": "icu/chartevents.csv.gz",

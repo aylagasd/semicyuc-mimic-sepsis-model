@@ -99,7 +99,12 @@ Decision-curve analysis across prespecified plausible threshold probabilities is
 La rejilla exploratoria ejecutable está en `config/evaluation.json`. No equivale
 a umbrales operativos: esa lista permanece vacía hasta aprobar una acción
 clínica. La convención binaria es `probabilidad >= umbral`; calibración y
-decision-curve se muestran en el notebook 13 sin acceso al test.
+decision-curve se muestran en el notebook 13 sin acceso al test. La misma tabla
+agregada informa alertas por 100 días-paciente observados, fracción de landmarks
+bajo alerta, episodios separados, pacientes/estancias alertados y mediana de
+anticipación solo entre eventos alertados dentro del horizonte evaluado; los
+eventos omitidos se cuentan por separado y nunca reciben anticipación cero
+inventada.
 
 Do not claim benefit from AUROC/AUPRC alone. Thresholds must correspond to an intended action and require prospective evaluation.
 

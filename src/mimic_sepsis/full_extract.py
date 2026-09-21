@@ -76,7 +76,7 @@ class FullCSVExtractor:
             "backend": "duckdb-out-of-core-csv",
             "cohort_policy": "first_per_admission",
             "data_version": self.data_version,
-            "extractor_schema_version": 5,
+            "extractor_schema_version": 7,
             "itemids": {
                 "chartevents": sorted(CHARTEVENT_ITEMIDS),
                 "labevents": sorted(LABEVENT_ITEMIDS),
@@ -158,6 +158,8 @@ class FullCSVExtractor:
             connection.execute("""
                 CREATE TEMP TABLE cohort_evaluated AS
                 SELECT i.subject_id, i.hadm_id, i.stay_id, i.intime, i.outtime,
+                       i.first_careunit, p.gender, a.admission_type,
+                       a.admission_location, a.insurance, a.race,
                        p.anchor_age + year(i.intime) - p.anchor_year AS age_at_icu,
                        CASE
                          WHEN p.subject_id IS NULL THEN 'missing_patient_link'
@@ -182,7 +184,11 @@ class FullCSVExtractor:
             """)
             connection.execute("""
                 CREATE TEMP VIEW cohort AS
-                SELECT subject_id, hadm_id, stay_id, intime, outtime, age_at_icu
+                SELECT subject_id, hadm_id, stay_id,
+                       cast(intime AS TIMESTAMP_NS) AS intime,
+                       cast(outtime AS TIMESTAMP_NS) AS outtime, age_at_icu,
+                       first_careunit, gender, admission_type, admission_location,
+                       insurance, race
                 FROM cohort_ranked WHERE stay_rank=1
             """)
             manifests = [self._write(
@@ -192,8 +198,12 @@ class FullCSVExtractor:
             )]
             manifests.append(self._write(
                 connection, "cohort_audit",
-                """SELECT e.subject_id, e.hadm_id, e.stay_id, e.intime, e.outtime,
-                          e.age_at_icu, r.stay_rank, coalesce(
+                """SELECT e.subject_id, e.hadm_id, e.stay_id,
+                          cast(e.intime AS TIMESTAMP_NS) AS intime,
+                          cast(e.outtime AS TIMESTAMP_NS) AS outtime,
+                          e.age_at_icu, e.first_careunit, e.gender,
+                          e.admission_type, e.admission_location, e.insurance,
+                          e.race, r.stay_rank, coalesce(
                             e.initial_exclusion_reason,
                             CASE WHEN r.stay_rank>1 THEN 'not_selected:first_per_admission' END
                           ) AS exclusion_reason,

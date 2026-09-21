@@ -32,13 +32,21 @@ only at `storetime`. Aggregation windows are left-closed and right-open:
 
 | Variable | Source Table | Definition | Unit | Notes |
 |------------|-------------|------------|------|-------|
-| age | patients | Age at ICU admission | years | Ages >89 truncated in MIMIC |
-| sex | patients | Biological sex | categorical | M/F |
-| ethnicity | admissions | Ethnicity group | categorical | Collapsed categories |
-| admission_type | admissions | Admission type | categorical | Emergency / Urgent / Elective |
-| admission_location | admissions | Source of admission | categorical | ED / Ward / OR |
+| age_at_icu | patients + icustays | Anchor age advanced to ICU admission year | years | Ages >89 use the MIMIC anchor convention; audit descriptor only in the current primary model |
+| gender | patients | Sex/gender value recorded by MIMIC | categorical | Administrative field; do not reinterpret as a biological construct |
+| race | admissions | Race/ethnicity text recorded for the admission | categorical | Administrative/social descriptor; retain raw label for audited grouping |
+| admission_type | admissions | Admission type recorded by MIMIC | categorical | Audit/subgroup descriptor |
+| admission_location | admissions | Recorded source of admission | categorical | Audit/subgroup descriptor |
+| insurance | admissions | Recorded payer category | categorical | Audit/subgroup descriptor |
+| first_careunit | icustays | First ICU unit recorded for the stay | categorical | Workflow/unit descriptor |
+| age_group | derived from age_at_icu | 18–44, 45–64, 65–79, 80+ | categorical | Used only for subgroup audit; boundaries are left-closed |
 
-Static variables are constant per ICU stay.
+These static fields are attached to report tables for heterogeneity and
+transportability audits. They are not present in the current primary predictor
+matrix in `config/features.json` or the five-feature baseline. Missing values
+are displayed as `Missing`; small cells and a complementary cell are
+suppressed according to `config/subgroups.json` so a hidden count cannot be
+recovered by subtraction.
 
 ---
 
@@ -306,9 +314,10 @@ Final modeling dataset columns:
 # 10. Variable Categories for Modeling
 
 ### Static
-- age
-- sex
-- admission_type
+- none in the currently implemented primary baseline;
+- age, recorded gender, admission type/location, race, insurance and care unit
+  are audit descriptors unless a later frozen model specification explicitly
+  promotes one to a predictor.
 
 ### Dynamic
 - Vital signs
@@ -321,7 +330,5 @@ Final modeling dataset columns:
 # Current Version
 
 v0.2 – Feature Definition Phase
-
-
 
 

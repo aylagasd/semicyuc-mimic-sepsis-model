@@ -52,3 +52,16 @@ def test_missing_required_column_fails_early():
     patients, admissions, icustays = synthetic_tables()
     with pytest.raises(ValueError, match="anchor_year"):
         build_adult_icu_cohort(patients.drop(columns="anchor_year"), admissions, icustays)
+
+
+def test_audit_descriptors_are_retained_but_not_required_for_eligibility():
+    patients, admissions, icustays = synthetic_tables()
+    patients["gender"] = ["F", "M", "F"]
+    admissions["race"] = ["A", "B", "C", "D"]
+    admissions["admission_type"] = "URGENT"
+    icustays["first_careunit"] = "Medical Intensive Care Unit (MICU)"
+    result = build_adult_icu_cohort(patients, admissions, icustays)
+    assert {"gender", "race", "admission_type", "first_careunit"} <= set(
+        result.cohort
+    )
+    assert result.cohort.loc[result.cohort["stay_id"].eq(101), "gender"].item() == "F"
