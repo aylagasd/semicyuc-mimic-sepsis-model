@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from mimic_sepsis.reporting import build_development_report
+from mimic_sepsis.modeling import make_gradient_boosting_pipeline
 
 
 def _table(start, patients=20):
@@ -37,17 +38,25 @@ def test_report_is_aggregate_and_uses_both_samples():
         cohort=cohort, subgroup_columns=("age_group", "gender"),
         subgroup_minimum_events=2, subgroup_minimum_nonevents=2,
         privacy_minimum_cell=2,
+        nonlinear_pipeline=make_gradient_boosting_pipeline(
+            ("heart_rate_last_24h", "map_min_24h"),
+            max_iter=10, max_leaf_nodes=3, min_samples_leaf=2, seed=42,
+        ),
     )
     assert set(report.sample_flow["sample"]) == {"development_oof", "validation"}
-    assert len(report.point_metrics) == 4
-    assert len(report.paired_intervals) == 8
-    assert len(report.metric_intervals) == 4 * 10
-    assert len(report.threshold_metrics) == 8
+    assert len(report.point_metrics) == 6
+    assert len(report.paired_intervals) == 24
+    assert len(report.metric_intervals) == 6 * 10
+    assert len(report.threshold_metrics) == 12
     assert {"alerts_per_100_patient_days", "median_warning_hours"} <= set(
         report.threshold_metrics
     )
     assert set(report.decision_curves["strategy"]) == {
-        "reference", "candidate", "treat_all", "treat_none"
+        "reference", "logistic", "gradient_boosting", "treat_all", "treat_none"
+    }
+    assert set(report.paired_intervals["comparison"]) == {
+        "logistic_minus_reference", "gradient_boosting_minus_reference",
+        "gradient_boosting_minus_logistic",
     }
     assert set(report.subgroup_performance["subgroup"]) == {"age_group", "gender"}
     assert report.paired_intervals["successful_replicates"].between(0, 10).all()

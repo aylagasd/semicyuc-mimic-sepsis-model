@@ -5,12 +5,13 @@
     "D010": "provisional",
     "D011": "pending",
     "D014": "provisional",
-    "D016": "provisional"
+    "D016": "provisional",
+    "D027": "provisional"
   },
   "phase_requirements": {
     "phenotype": ["D002", "D004", "D010", "D011"],
-    "model": ["D002", "D004", "D010", "D011", "D014", "D016"],
-    "test": ["D002", "D004", "D010", "D011", "D014", "D016"]
+    "model": ["D002", "D004", "D010", "D011", "D014", "D016", "D027"],
+    "test": ["D002", "D004", "D010", "D011", "D014", "D016", "D027"]
   },
-  "schema_version": 1
+  "schema_version": 2
 }

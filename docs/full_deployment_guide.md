@@ -127,7 +127,7 @@ recorrido monolítico.
 
 ## 5. Puertas antes de ejecutar el conjunto completo
 
-1. congelar D002, D004, D010, D011, D014 y D016;
+1. congelar D002, D004, D010, D011, D014, D016 y D027;
 2. ejecutar preflight de archivos o conexión read-only;
 3. registrar versión, checksum/configuración y commit del código;
 4. generar la partición por paciente antes de cualquier ajuste empírico;

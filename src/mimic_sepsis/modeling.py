@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score, brier_score_loss, log_loss, roc_auc_score
@@ -101,6 +102,45 @@ def make_logistic_pipeline(
         solver="saga" if elastic_net_l1_ratio is not None else "lbfgs",
         l1_ratio=0 if elastic_net_l1_ratio is None else elastic_net_l1_ratio,
         max_iter=5000,
+        random_state=seed,
+    )
+    return Pipeline([("preprocess", preprocess), ("model", model)])
+
+
+def make_gradient_boosting_pipeline(
+    feature_columns: Sequence[str],
+    *,
+    learning_rate: float = 0.05,
+    max_iter: int = 200,
+    max_leaf_nodes: int = 15,
+    min_samples_leaf: int = 20,
+    l2_regularization: float = 1.0,
+    seed: int = 20260909,
+) -> Pipeline:
+    """Create a fold-local imputation and histogram boosting pipeline."""
+    columns = list(feature_columns)
+    if not columns or len(columns) != len(set(columns)):
+        raise ValueError("feature_columns must be non-empty and unique")
+    if learning_rate <= 0 or max_iter <= 0:
+        raise ValueError("learning_rate and max_iter must be positive")
+    if max_leaf_nodes < 2 or min_samples_leaf <= 0:
+        raise ValueError("max_leaf_nodes must be >=2 and min_samples_leaf positive")
+    if l2_regularization < 0:
+        raise ValueError("l2_regularization must be non-negative")
+    preprocess = ColumnTransformer(
+        [("numeric", SimpleImputer(
+            strategy="median", add_indicator=True, keep_empty_features=True,
+        ), columns)],
+        remainder="drop",
+        verbose_feature_names_out=False,
+    )
+    model = HistGradientBoostingClassifier(
+        learning_rate=learning_rate,
+        max_iter=max_iter,
+        max_leaf_nodes=max_leaf_nodes,
+        min_samples_leaf=min_samples_leaf,
+        l2_regularization=l2_regularization,
+        early_stopping=False,
         random_state=seed,
     )
     return Pipeline([("preprocess", preprocess), ("model", model)])

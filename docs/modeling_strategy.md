@@ -67,6 +67,13 @@ No patient is shared across folds. Stratification is performed at patient level 
 2. Main interpretable model: penalized logistic regression (elastic net), with restricted cubic splines or prespecified transforms for continuous predictors.
 3. Nonlinear comparator: gradient-boosted decision trees. Random forest is exploratory.
 
+El comparador técnico implementado usa gradient boosting por histogramas. En
+el demo recibe las mismas cinco variables que la regresión, imputación e
+indicadores de ausencia ajustados dentro de cada fold, pesos que igualan la
+contribución total por paciente y `early_stopping=False` para evitar una
+partición interna no agrupada. Sus valores actuales validan ingeniería: no son
+un tuning ni autorizan seleccionar el modelo.
+
 Hyperparameter search spaces, random seeds, stopping criteria and software versions are committed before locked-test evaluation. Class weighting may aid optimization but does not replace probability correction; resampling must not distort final calibration. Primary predictions remain continuous probabilities.
 
 ## 7. Missing data

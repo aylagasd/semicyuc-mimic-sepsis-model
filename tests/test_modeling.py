@@ -10,6 +10,7 @@ from mimic_sepsis.modeling import (
     equal_patient_weights,
     grouped_cross_validation,
     grouped_prevalence_cross_validation,
+    make_gradient_boosting_pipeline,
     make_logistic_pipeline,
     patient_weighted_event_rate,
 )
@@ -82,3 +83,27 @@ def test_grouped_cv_predicts_each_row_without_patient_overlap():
     assert len(baseline) == len(table)
     assert baseline.groupby("subject_id")["fold"].nunique().max() == 1
     assert len(baseline_metrics) == 4
+
+
+def test_gradient_boosting_uses_grouped_cv_and_fold_local_imputation():
+    rows = []
+    for subject in range(24):
+        for hour in range(2):
+            rows.append({
+                "subject_id": subject, "hadm_id": subject + 100,
+                "stay_id": subject + 200,
+                "landmark_time": pd.Timestamp("2100-01-01") + timedelta(hours=hour),
+                "outcome": int(subject % 3 == 0 and hour == 1),
+                "x": np.nan if subject % 5 == 0 else float(subject + hour),
+            })
+    table = pd.DataFrame(rows)
+    pipeline = make_gradient_boosting_pipeline(
+        ["x"], max_iter=10, max_leaf_nodes=3, min_samples_leaf=2, seed=7,
+    )
+    predictions, metrics = grouped_cross_validation(
+        table, pipeline, ["x"], folds=4, seed=7
+    )
+    assert len(predictions) == len(table)
+    assert predictions.groupby("subject_id")["fold"].nunique().max() == 1
+    assert predictions["probability"].between(0, 1).all()
+    assert len(metrics) == 4

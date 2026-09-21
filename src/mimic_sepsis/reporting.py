@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import Sequence
 
 import pandas as pd
+from sklearn.base import clone
+from sklearn.pipeline import Pipeline
 
 from .evaluation import (
     calibration_metrics, decision_curve, patient_cluster_bootstrap_comparison,
@@ -47,21 +49,22 @@ def build_development_report(
     subgroup_minimum_events: int = 20,
     subgroup_minimum_nonevents: int = 20,
     privacy_minimum_cell: int = 10,
+    nonlinear_pipeline: Pipeline | None = None,
 ) -> DevelopmentReport:
-    """Compare prevalence and clinical baseline without reading locked test."""
+    """Compare prespecified models without reading the locked test."""
     columns = list(feature_columns)
     reference_oof, _ = grouped_prevalence_cross_validation(
         development, folds=folds, seed=seed
     )
     pipeline = make_logistic_pipeline(columns, c=logistic_c, seed=seed)
-    candidate_oof, _ = grouped_cross_validation(
+    logistic_oof, _ = grouped_cross_validation(
         development, pipeline, columns, folds=folds, seed=seed
     )
     keys = [
         "subject_id", "hadm_id", "stay_id", "landmark_time", "fold", "outcome"
     ]
     oof = reference_oof.rename(columns={"probability": "reference"}).merge(
-        candidate_oof.rename(columns={"probability": "candidate"}),
+        logistic_oof.rename(columns={"probability": "logistic"}),
         on=keys, validate="one_to_one",
     )
     oof = oof.merge(
@@ -69,6 +72,18 @@ def build_development_report(
         on=["subject_id", "hadm_id", "stay_id", "landmark_time"],
         how="left", validate="one_to_one",
     )
+    model_names = ["reference", "logistic"]
+    if nonlinear_pipeline is not None:
+        nonlinear_oof, _ = grouped_cross_validation(
+            development, nonlinear_pipeline, columns, folds=folds, seed=seed
+        )
+        oof = oof.merge(
+            nonlinear_oof[keys + ["probability"]].rename(
+                columns={"probability": "gradient_boosting"}
+            ),
+            on=keys, validate="one_to_one",
+        )
+        model_names.append("gradient_boosting")
     pipeline.fit(
         development[columns], development["outcome"],
         model__sample_weight=equal_patient_weights(development),
@@ -77,9 +92,18 @@ def build_development_report(
         ["subject_id", "hadm_id", "stay_id", "landmark_time", "event_time", "outcome"]
     ].copy()
     validation_predictions["reference"] = patient_weighted_event_rate(development)
-    validation_predictions["candidate"] = pipeline.predict_proba(
+    validation_predictions["logistic"] = pipeline.predict_proba(
         validation[columns]
     )[:, 1]
+    if nonlinear_pipeline is not None:
+        fitted_nonlinear = clone(nonlinear_pipeline)
+        fitted_nonlinear.fit(
+            development[columns], development["outcome"],
+            model__sample_weight=equal_patient_weights(development),
+        )
+        validation_predictions["gradient_boosting"] = fitted_nonlinear.predict_proba(
+            validation[columns]
+        )[:, 1]
     samples = {
         "development_oof": oof,
         "validation": validation_predictions,
@@ -100,7 +124,7 @@ def build_development_report(
             "events": int(frame["outcome"].sum()),
             "prevalence": float(frame["outcome"].mean()),
         })
-        for model in ("reference", "candidate"):
+        for model_index, model in enumerate(model_names):
             metrics.append({
                 "sample": sample, "model": model,
                 **binary_metrics(frame["outcome"], frame[model]),
@@ -108,7 +132,7 @@ def build_development_report(
             })
             estimates = patient_cluster_bootstrap_estimates(
                 frame, frame[model], replicates=bootstrap_replicates,
-                seed=seed + offset * 10 + (0 if model == "reference" else 1),
+                seed=seed + offset * 10 + model_index,
             )
             estimate_summary = percentile_intervals(
                 estimates, confidence_level=confidence_level
@@ -148,15 +172,24 @@ def build_development_report(
                 subgroup["sample"] = sample
                 subgroup["model"] = model
                 subgroups.append(subgroup)
-        bootstrap = patient_cluster_bootstrap_comparison(
-            frame, frame["reference"], frame["candidate"],
-            replicates=bootstrap_replicates, seed=seed + offset,
-        )
-        summary = percentile_intervals(
-            bootstrap, confidence_level=confidence_level
-        )
-        summary["sample"] = sample
-        intervals.append(summary)
+        comparisons = [("logistic_minus_reference", "reference", "logistic")]
+        if nonlinear_pipeline is not None:
+            comparisons.extend([
+                ("gradient_boosting_minus_reference", "reference", "gradient_boosting"),
+                ("gradient_boosting_minus_logistic", "logistic", "gradient_boosting"),
+            ])
+        for comparison_index, (name, reference, candidate) in enumerate(comparisons):
+            bootstrap = patient_cluster_bootstrap_comparison(
+                frame, frame[reference], frame[candidate],
+                replicates=bootstrap_replicates,
+                seed=seed + offset * 10 + 100 + comparison_index,
+            )
+            summary = percentile_intervals(
+                bootstrap, confidence_level=confidence_level
+            )
+            summary["sample"] = sample
+            summary["comparison"] = name
+            intervals.append(summary)
     return DevelopmentReport(
         sample_flow=pd.DataFrame(flow),
         point_metrics=pd.DataFrame(metrics),
