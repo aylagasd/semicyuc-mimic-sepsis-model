@@ -40,6 +40,8 @@ only at `storetime`. Aggregation windows are left-closed and right-open:
 | insurance | admissions | Recorded payer category | categorical | Audit/subgroup descriptor |
 | first_careunit | icustays | First ICU unit recorded for the stay | categorical | Workflow/unit descriptor |
 | age_group | derived from age_at_icu | 18–44, 45–64, 65–79, 80+ | categorical | Used only for subgroup audit; boundaries are left-closed |
+| missing_features | model feature matrix | Number of primary baseline predictors absent at a landmark | count | Audit-only; never used as the outcome or a primary predictor |
+| missingness_group | derived from missing_features | 0 missing, 1 missing, 2+ missing | categorical | Descriptive performance audit with privacy suppression |
 
 These static fields are attached to report tables for heterogeneity and
 transportability audits. They are not present in the current primary predictor
@@ -330,5 +332,4 @@ Final modeling dataset columns:
 # Current Version
 
 v0.2 – Feature Definition Phase
-
 

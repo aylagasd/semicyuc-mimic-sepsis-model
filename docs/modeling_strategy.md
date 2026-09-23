@@ -74,6 +74,13 @@ contribución total por paciente y `early_stopping=False` para evitar una
 partición interna no agrupada. Sus valores actuales validan ingeniería: no son
 un tuning ni autorizan seleccionar el modelo.
 
+La disponibilidad de cada predictor se resume por partición antes de
+interpretar rendimiento. Además, cada landmark se clasifica de forma
+descriptiva en 0, 1 o al menos 2 predictores ausentes. Este estrato no entra en
+la matriz predictora primaria: sirve para detectar degradación ligada al flujo
+de medición. Los conteos pequeños se suprimen y la imputación continúa
+ajustándose exclusivamente dentro del fold de entrenamiento.
+
 Hyperparameter search spaces, random seeds, stopping criteria and software versions are committed before locked-test evaluation. Class weighting may aid optimization but does not replace probability correction; resampling must not distort final calibration. Primary predictions remain continuous probabilities.
 
 ## 7. Missing data

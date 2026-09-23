@@ -197,7 +197,7 @@ manifiesto canónico es [`notebooks/README.md`](../notebooks/README.md).
 | 10 | Referencias de prevalencia y regresión clínica con validación agrupada. |
 | 11 | Comparación pareada e intervalos por bootstrap de pacientes completos. |
 | 12 | Sensibilidades de cohorte, horizonte y lookback. |
-| 13 | Informe pre-test: regresión, gradient boosting, utilidad, subgrupos y figuras reproducibles con `ggplot2`. |
+| 13 | Informe pre-test: modelos, utilidad, subgrupos, missingness y figuras reproducibles con `ggplot2`. |
 
 Python se usa para datos y modelos. R y `ggplot2` constituyen el estándar de
 las figuras analíticas y publicables. El notebook 07 incluye una comparación

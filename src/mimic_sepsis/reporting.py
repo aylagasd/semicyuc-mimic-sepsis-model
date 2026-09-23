@@ -19,6 +19,7 @@ from .modeling import (
     grouped_prevalence_cross_validation, make_logistic_pipeline,
     patient_weighted_event_rate,
 )
+from .missingness import attach_missingness_burden, feature_missingness_summary
 from .subgroups import attach_audit_subgroups, subgroup_performance
 
 
@@ -31,6 +32,7 @@ class DevelopmentReport:
     threshold_metrics: pd.DataFrame
     decision_curves: pd.DataFrame
     subgroup_performance: pd.DataFrame
+    missingness_summary: pd.DataFrame
 
 
 def build_development_report(
@@ -68,7 +70,10 @@ def build_development_report(
         on=keys, validate="one_to_one",
     )
     oof = oof.merge(
-        development[["subject_id", "hadm_id", "stay_id", "landmark_time", "event_time"]],
+        development[[
+            "subject_id", "hadm_id", "stay_id", "landmark_time", "event_time",
+            *columns,
+        ]],
         on=["subject_id", "hadm_id", "stay_id", "landmark_time"],
         how="left", validate="one_to_one",
     )
@@ -89,7 +94,10 @@ def build_development_report(
         model__sample_weight=equal_patient_weights(development),
     )
     validation_predictions = validation[
-        ["subject_id", "hadm_id", "stay_id", "landmark_time", "event_time", "outcome"]
+        [
+            "subject_id", "hadm_id", "stay_id", "landmark_time", "event_time",
+            "outcome", *columns,
+        ]
     ].copy()
     validation_predictions["reference"] = patient_weighted_event_rate(development)
     validation_predictions["logistic"] = pipeline.predict_proba(
@@ -115,6 +123,7 @@ def build_development_report(
     operating = []
     curves = []
     subgroups = []
+    missingness_summaries = []
     for offset, (sample, frame) in enumerate(samples.items()):
         flow.append({
             "sample": sample,
@@ -124,6 +133,16 @@ def build_development_report(
             "events": int(frame["outcome"].sum()),
             "prevalence": float(frame["outcome"].mean()),
         })
+        availability = feature_missingness_summary(
+            frame, columns, privacy_minimum_cell=privacy_minimum_cell
+        )
+        availability["sample"] = sample
+        missingness_summaries.append(availability)
+        audited = attach_missingness_burden(frame, columns)
+        audit_columns = ["missingness_group"]
+        if cohort is not None and subgroup_columns:
+            audited = attach_audit_subgroups(audited, cohort)
+            audit_columns = [*subgroup_columns, *audit_columns]
         for model_index, model in enumerate(model_names):
             metrics.append({
                 "sample": sample, "model": model,
@@ -161,17 +180,15 @@ def build_development_report(
                 curve.loc[curve["strategy"].eq("model"), "strategy"] = model
                 curve["sample"] = sample
                 curves.append(curve)
-            if cohort is not None and subgroup_columns:
-                audited = attach_audit_subgroups(frame, cohort)
-                subgroup = subgroup_performance(
-                    audited, audited[model], subgroup_columns=subgroup_columns,
-                    minimum_events=subgroup_minimum_events,
-                    minimum_nonevents=subgroup_minimum_nonevents,
-                    privacy_minimum_cell=privacy_minimum_cell,
-                )
-                subgroup["sample"] = sample
-                subgroup["model"] = model
-                subgroups.append(subgroup)
+            subgroup = subgroup_performance(
+                audited, audited[model], subgroup_columns=audit_columns,
+                minimum_events=subgroup_minimum_events,
+                minimum_nonevents=subgroup_minimum_nonevents,
+                privacy_minimum_cell=privacy_minimum_cell,
+            )
+            subgroup["sample"] = sample
+            subgroup["model"] = model
+            subgroups.append(subgroup)
         comparisons = [("logistic_minus_reference", "reference", "logistic")]
         if nonlinear_pipeline is not None:
             comparisons.extend([
@@ -202,4 +219,5 @@ def build_development_report(
         subgroup_performance=(
             pd.concat(subgroups, ignore_index=True) if subgroups else pd.DataFrame()
         ),
+        missingness_summary=pd.concat(missingness_summaries, ignore_index=True),
     )

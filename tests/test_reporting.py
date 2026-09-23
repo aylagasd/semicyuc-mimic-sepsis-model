@@ -58,7 +58,15 @@ def test_report_is_aggregate_and_uses_both_samples():
         "logistic_minus_reference", "gradient_boosting_minus_reference",
         "gradient_boosting_minus_logistic",
     }
-    assert set(report.subgroup_performance["subgroup"]) == {"age_group", "gender"}
+    assert set(report.subgroup_performance["subgroup"]) == {
+        "age_group", "gender", "missingness_group",
+    }
+    assert set(report.missingness_summary["feature"]) == {
+        "heart_rate_last_24h", "map_min_24h",
+    }
+    assert set(report.missingness_summary["sample"]) == {
+        "development_oof", "validation",
+    }
     assert report.paired_intervals["successful_replicates"].between(0, 10).all()
     assert not any(
         column in report.point_metrics for column in ("subject_id", "stay_id")
