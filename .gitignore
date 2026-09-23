@@ -9,6 +9,7 @@ __pycache__/
 !*.env.example
 config/*.env
 !config/*.env.example
+config/test_release.local.json
 data/
 .netrc
 .tools/

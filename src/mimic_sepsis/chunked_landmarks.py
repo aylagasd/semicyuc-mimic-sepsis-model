@@ -27,6 +27,17 @@ TARGETS = {
 PARTITIONS = ("development", "validation", "test")
 
 
+def validate_partitions(partitions: tuple[str, ...]) -> tuple[str, ...]:
+    """Return a non-empty unique subset of the declared patient partitions."""
+    values = tuple(partitions)
+    if not values or len(values) != len(set(values)):
+        raise ValueError("partitions must be non-empty and unique")
+    unknown = sorted(set(values) - set(PARTITIONS))
+    if unknown:
+        raise ValueError(f"Unknown partitions: {', '.join(unknown)}")
+    return values
+
+
 class ChunkedLandmarkBuilder:
     """Create risk sets per cohort batch and physical patient partition."""
 
@@ -40,6 +51,8 @@ class ChunkedLandmarkBuilder:
         landmark_config_path: Path,
         split_config_path: Path,
         code_version: str = "unknown",
+        partitions: tuple[str, ...] = PARTITIONS,
+        allow_non_demo_test: bool = False,
     ) -> None:
         self.source_dir = Path(source_dir)
         self.sofa_run = Path(sofa_run)
@@ -48,9 +61,20 @@ class ChunkedLandmarkBuilder:
         self.landmark_config_path = Path(landmark_config_path)
         self.split_config_path = Path(split_config_path)
         self.code_version = str(code_version)
+        self.partitions = validate_partitions(partitions)
+        self.allow_non_demo_test = bool(allow_non_demo_test)
 
     def run(self, *, resume: bool = False) -> dict[str, PartitionedDatasetManifest]:
         sources = validate_extract(self.source_dir)
+        data_version = next(iter(sources.values())).data_version
+        if (
+            data_version != "2.2"
+            and "test" in self.partitions
+            and not self.allow_non_demo_test
+        ):
+            raise ArtifactValidationError(
+                "Non-demo test materialization requires the gated full pipeline"
+            )
         sofa = validate_partitioned_dataset(self.sofa_run, "sofa_hourly")
         label_manifests = {
             artifact: validate_partitioned_dataset(
@@ -80,16 +104,16 @@ class ChunkedLandmarkBuilder:
             },
             "landmarks": landmark_config,
             "splits": split_config,
+            "materialized_partitions": list(self.partitions),
         }
         config_hash = _canonical_hash(config)
         run_root = self.output_root / config_hash[:16]
         names = [
             f"{target}_{partition}_landmarks"
-            for target in TARGETS for partition in PARTITIONS
+            for target in TARGETS for partition in self.partitions
         ]
         stores = {name: ArtifactStore(run_root / name / "parts") for name in names}
         collected: dict[str, list[dict[str, Any]]] = {name: [] for name in names}
-        data_version = next(iter(sources.values())).data_version
         batch_size = int(sofa.metadata.get("batch_size", 0))
         if batch_size <= 0:
             raise ArtifactValidationError("SOFA manifest lacks a valid batch size")
@@ -150,7 +174,7 @@ class ChunkedLandmarkBuilder:
                     landmarks["partition"] = landmarks["subject_id"].map(
                         patient_map
                     ).astype("string")
-                    for partition in PARTITIONS:
+                    for partition in self.partitions:
                         name = f"{target}_{partition}_landmarks"
                         frame = landmarks.loc[
                             landmarks["partition"].eq(partition)

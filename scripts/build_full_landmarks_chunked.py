@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from mimic_sepsis.chunked_landmarks import ChunkedLandmarkBuilder
+from mimic_sepsis.chunked_landmarks import ChunkedLandmarkBuilder, PARTITIONS
 from mimic_sepsis.chunked_sofa import detect_code_version
 
 
@@ -20,6 +20,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--landmark-config", type=Path, default=Path("config/landmarks.json"))
     parser.add_argument("--split-config", type=Path, default=Path("config/splits.json"))
     parser.add_argument("--code-version")
+    parser.add_argument(
+        "--partitions", nargs="+", choices=PARTITIONS,
+        default=list(PARTITIONS),
+    )
     parser.add_argument("--resume", action="store_true")
     return parser.parse_args()
 
@@ -33,6 +37,7 @@ def main() -> int:
         code_version=args.code_version or detect_code_version(
             Path(__file__).resolve().parents[1]
         ),
+        partitions=tuple(args.partitions),
     ).run(resume=args.resume)
     print(json.dumps({
         name: {"parts": len(item.parts), "rows": item.rows}

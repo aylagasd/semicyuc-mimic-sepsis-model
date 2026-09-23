@@ -1,0 +1,9 @@
+{
+  "approval_status": "pending",
+  "approved_at_utc": "YYYY-MM-DDTHH:MM:SSZ",
+  "approver_roles": ["clinical_lead", "statistical_lead"],
+  "data_version": "3.1",
+  "model_freeze_sha256": "SHA256_OF_FROZEN_MODEL_FILE",
+  "reason": "Prespecified purpose of the single final test access.",
+  "schema_version": 1
+}

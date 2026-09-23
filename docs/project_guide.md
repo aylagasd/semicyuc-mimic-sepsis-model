@@ -331,6 +331,10 @@ observación y un horizonte `H`. Las reglas esenciales son:
   dentro de cada fold;
 - el test final permanece bloqueado hasta congelar fenotipo, features y modelos.
 
+En MIMIC-IV no-demo, el pipeline tampoco materializa test por defecto. Su
+creación exige puerta de protocolo, modelo congelado y autorización local de
+roles clínico/estadístico ligada al SHA-256 del modelo.
+
 El horizonte primario es 6 h y su intervalo es `(L,L+6 h]`; esta convención
 está congelada en D009/D012 y cubierta por pruebas de frontera.
 

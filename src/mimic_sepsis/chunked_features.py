@@ -11,7 +11,7 @@ import duckdb
 import pandas as pd
 
 from .artifacts import ArtifactStore, ArtifactValidationError
-from .chunked_landmarks import PARTITIONS, TARGETS
+from .chunked_landmarks import PARTITIONS, TARGETS, validate_partitions
 from .chunked_sofa import (
     PartitionedDatasetManifest, _canonical_hash, validate_extract,
     validate_partitioned_dataset,
@@ -32,18 +32,31 @@ class ChunkedFeatureBuilder:
         *,
         feature_config_path: Path,
         code_version: str = "unknown",
+        partitions: tuple[str, ...] = PARTITIONS,
+        allow_non_demo_test: bool = False,
     ) -> None:
         self.source_dir = Path(source_dir)
         self.landmark_run = Path(landmark_run)
         self.output_root = Path(output_root)
         self.feature_config_path = Path(feature_config_path)
         self.code_version = str(code_version)
+        self.partitions = validate_partitions(partitions)
+        self.allow_non_demo_test = bool(allow_non_demo_test)
 
     def run(self, *, resume: bool = False) -> dict[str, PartitionedDatasetManifest]:
         sources = validate_extract(self.source_dir)
+        data_version = next(iter(sources.values())).data_version
+        if (
+            data_version != "2.2"
+            and "test" in self.partitions
+            and not self.allow_non_demo_test
+        ):
+            raise ArtifactValidationError(
+                "Non-demo test materialization requires the gated full pipeline"
+            )
         landmark_names = [
             f"{target}_{partition}_landmarks"
-            for target in TARGETS for partition in PARTITIONS
+            for target in TARGETS for partition in self.partitions
         ]
         landmarks = {
             name: validate_partitioned_dataset(self.landmark_run / name, name)
@@ -68,6 +81,7 @@ class ChunkedFeatureBuilder:
                 for name, manifest in landmarks.items()
             },
             "features": feature_config,
+            "materialized_partitions": list(self.partitions),
         }
         config_hash = _canonical_hash(config)
         run_root = self.output_root / config_hash[:16]
@@ -78,7 +92,6 @@ class ChunkedFeatureBuilder:
         collected: dict[str, list[dict[str, Any]]] = {
             name: [] for name in feature_names
         }
-        data_version = next(iter(sources.values())).data_version
         cohort_path = _sql_path(self.source_dir / "cohort_stays.parquet")
         chart_path = _sql_path(self.source_dir / "chartevents_reduced.parquet")
         lab_path = _sql_path(self.source_dir / "labevents_reduced.parquet")

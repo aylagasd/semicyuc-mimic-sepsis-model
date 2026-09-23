@@ -13,3 +13,10 @@ umbrales.
 Los notebooks de desarrollo 09 y siguientes no descubren ni cargan artefactos
 test. Las validaciones automáticas pueden comprobar manifiestos, esquema y
 aislamiento sin utilizar valores de desenlace para tomar decisiones.
+
+Para datos no-demo, el pipeline completo crea por defecto solo development y
+validation. Antes del primer acceso final se añade una fila a esta tabla, se
+versiona el modelo congelado y se prepara localmente una autorización que
+vincula por SHA-256 ese archivo, la versión de datos y los roles aprobadores.
+Sin los tres elementos la opción `--materialize-test` falla antes de crear
+landmarks o features de test.

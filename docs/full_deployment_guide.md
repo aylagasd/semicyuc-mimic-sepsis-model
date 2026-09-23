@@ -116,6 +116,28 @@ python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
   --resume
 ```
 
+En una versión no-demo, este comando exige la puerta `model` y materializa
+solo `development` y `validation`. Los constructores de bajo nivel también
+rechazan test no-demo, de modo que no se crea por accidente al ejecutar un
+script de etapa.
+
+El test se materializa una sola vez, después de congelar y versionar
+`config/model_freeze.json`, registrar previamente el acceso y crear una
+autorización local a partir de `config/test_release.example.json`:
+
+```bash
+python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
+  --output-root /ruta/derivados/full_pipeline \
+  --materialize-test \
+  --model-freeze config/model_freeze.json \
+  --test-release config/test_release.local.json \
+  --resume
+```
+
+La autorización debe declarar roles clínico y estadístico, versión de datos,
+momento UTC, motivo y el SHA-256 exacto del modelo congelado. El archivo local
+está ignorado por Git; no contiene contraseñas ni se imprime en la salida.
+
 Cada derivado encadena hashes de sus entradas concretas; cambiar una parte
 invalida sus descendientes. El tamaño de lote debe ajustarse con una prueba de
 memoria en el servidor. La equivalencia de contenido se comprobó sobre Demo
@@ -133,7 +155,8 @@ recorrido monolítico.
 4. generar la partición por paciente antes de cualquier ajuste empírico;
 5. mantener test separado y registrar cada acceso;
 6. revisar recuentos agregados, espacio, memoria y tiempos por etapa;
-7. no abrir el test hasta congelar modelos, calibración y umbrales.
+7. no crear ni abrir el test hasta congelar modelos, calibración y umbrales;
+8. registrar el acceso y validar la autorización ligada al modelo congelado.
 
 La ejecución completa sigue siendo investigación retrospectiva. No autoriza
 uso asistencial ni despliegue de alertas clínicas.
