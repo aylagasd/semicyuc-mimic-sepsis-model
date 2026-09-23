@@ -146,6 +146,30 @@ tablas exclusivamente agregadas; su manifiesto
 `aggregate_report.manifest.json` contiene el SHA-256 que debe copiarse al
 documento de congelación.
 
+La carpeta incluye además `aggregate_report.config.json`, snapshot sin
+credenciales de la configuración exacta. La integridad completa puede
+comprobarse fuera del notebook, sin mostrar filas clínicas:
+
+```bash
+python scripts/validate_pretest_report.py /ruta/al/informe
+```
+
+Para preparar la congelación sin convertir un borrador en autorización, copie
+`config/model_selection.example.json` a `config/model_selection.local.json`,
+complete solo decisiones ya revisadas y ejecute:
+
+```bash
+python scripts/prepare_model_freeze.py /ruta/al/informe \
+  --selection config/model_selection.local.json \
+  --output config/model_freeze.draft.local.json
+```
+
+El comando comprueba el informe, el commit y la limpieza de Git, las decisiones
+requeridas y los campos test-sensibles. Siempre escribe `status: draft` y
+`frozen_at_utc: null`: convertirlo en `config/model_freeze.json` requiere la
+revisión clínica/estadística y el procedimiento de firma. En Demo 2.2 devuelve
+un bloqueo explícito aunque toda la ingeniería sea correcta.
+
 Cada derivado encadena hashes de sus entradas concretas; cambiar una parte
 invalida sus descendientes. El tamaño de lote debe ajustarse con una prueba de
 memoria en el servidor. La equivalencia de contenido se comprobó sobre Demo

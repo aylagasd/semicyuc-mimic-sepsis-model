@@ -8,6 +8,7 @@ from mimic_sepsis.report_artifacts import (
     REPORT_TABLES,
     implementation_sha256,
     read_aggregate_report,
+    read_report_config,
     write_aggregate_report,
 )
 from mimic_sepsis.reporting import DevelopmentReport
@@ -30,6 +31,39 @@ def test_aggregate_report_round_trip_and_content_hash(tmp_path):
     loaded, validated = read_aggregate_report(tmp_path, expected_config=config)
     assert validated.report_sha256 == manifest.report_sha256
     assert set(loaded.point_metrics["metric"]) == {"point_metrics"}
+    assert read_report_config(tmp_path) == config
+
+
+def test_aggregate_report_can_verify_from_its_config_snapshot(tmp_path):
+    config = {"source": "demo", "nested": {"seed": 2025}}
+    manifest = write_aggregate_report(
+        _report(), tmp_path, data_version="2.2",
+        code_version="abc1234", config=config,
+    )
+    _, validated = read_aggregate_report(tmp_path)
+    assert validated.report_sha256 == manifest.report_sha256
+
+
+def test_aggregate_report_rejects_sensitive_config_before_writing(tmp_path):
+    with pytest.raises(ValueError, match="Sensitive key"):
+        write_aggregate_report(
+            _report(), tmp_path, data_version="2.2",
+            code_version="abc1234", config={"database_password": "do-not-store"},
+        )
+    assert not list(tmp_path.glob("*"))
+
+
+def test_aggregate_report_detects_tampered_config_snapshot(tmp_path):
+    config = {"source": "demo"}
+    write_aggregate_report(
+        _report(), tmp_path, data_version="2.2",
+        code_version="abc1234", config=config,
+    )
+    (tmp_path / "aggregate_report.config.json").write_text(
+        '{"source":"other"}\n', encoding="utf-8"
+    )
+    with pytest.raises(ArtifactValidationError, match="configuration mismatch"):
+        read_aggregate_report(tmp_path)
 
 
 def test_aggregate_report_rejects_patient_identifiers(tmp_path):

@@ -1,0 +1,10 @@
+{
+  "calibration": {
+    "intercept": null,
+    "method": null,
+    "slope": null
+  },
+  "model_parameters": {},
+  "operating_thresholds": [],
+  "primary_model": null
+}

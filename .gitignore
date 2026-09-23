@@ -10,6 +10,8 @@ __pycache__/
 config/*.env
 !config/*.env.example
 config/test_release.local.json
+config/model_freeze.draft.local.json
+config/model_selection.local.json
 data/
 .netrc
 .tools/

@@ -339,6 +339,10 @@ El informe pre-test persiste solo agregados verificados. Su hash global liga
 artefactos fuente, configuración y código analítico, y pasa a formar parte de
 la especificación del modelo congelado.
 
+Los comandos `validate_pretest_report.py` y `prepare_model_freeze.py` permiten
+verificar esa evidencia y enumerar todos los bloqueos restantes. El segundo
+solo genera un borrador y no puede autoautorizar la apertura del test.
+
 El horizonte primario es 6 h y su intervalo es `(L,L+6 h]`; esta convención
 está congelada en D009/D012 y cubierta por pruebas de frontera.
 

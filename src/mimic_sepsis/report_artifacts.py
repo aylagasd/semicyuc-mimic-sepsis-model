@@ -20,6 +20,10 @@ FORBIDDEN_ROW_COLUMNS = frozenset({
     "subject_id", "hadm_id", "stay_id", "landmark_time", "event_time",
 })
 REPORT_TABLES = tuple(field.name for field in fields(DevelopmentReport))
+REPORT_CONFIG_FILENAME = "aggregate_report.config.json"
+_SENSITIVE_CONFIG_TOKENS = frozenset({
+    "credential", "password", "secret", "token", "username",
+})
 
 
 @dataclass(frozen=True)
@@ -53,6 +57,45 @@ def implementation_sha256(paths: Sequence[str | Path]) -> str:
     return digest.hexdigest()
 
 
+def _validate_report_config(value: Mapping[str, Any]) -> None:
+    """Reject values whose key names suggest credentials or authentication."""
+    if not isinstance(value, Mapping):
+        raise TypeError("Aggregate report config must be a mapping")
+
+    def visit(item: Any, location: str) -> None:
+        if isinstance(item, Mapping):
+            for key, child in item.items():
+                normalized = str(key).lower().replace("-", "_")
+                words = set(normalized.split("_"))
+                if words & _SENSITIVE_CONFIG_TOKENS:
+                    raise ValueError(
+                        f"Sensitive key is forbidden in aggregate report config: "
+                        f"{location}{key}"
+                    )
+                visit(child, f"{location}{key}.")
+        elif isinstance(item, (list, tuple)):
+            for index, child in enumerate(item):
+                visit(child, f"{location}{index}.")
+
+    visit(value, "")
+
+
+def read_report_config(root: str | Path) -> Mapping[str, Any]:
+    """Load and safety-check the exact non-sensitive report configuration."""
+    path = Path(root) / REPORT_CONFIG_FILENAME
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError) as error:
+        raise ArtifactValidationError("Malformed aggregate report config") from error
+    if not isinstance(value, dict):
+        raise ArtifactValidationError("Aggregate report config must be an object")
+    try:
+        _validate_report_config(value)
+    except (TypeError, ValueError) as error:
+        raise ArtifactValidationError(str(error)) from error
+    return value
+
+
 def _validate_aggregate_table(name: str, frame: pd.DataFrame) -> None:
     forbidden = sorted(FORBIDDEN_ROW_COLUMNS & set(frame.columns))
     if forbidden:
@@ -83,6 +126,7 @@ def write_aggregate_report(
 ) -> AggregateReportManifest:
     """Persist only aggregate tables and publish a content-bound manifest."""
     root = Path(root)
+    _validate_report_config(config)
     store = ArtifactStore(root)
     # Privacy/schema checks are a transaction precondition: a late failure must
     # not leave an apparently usable subset of the report on disk.
@@ -114,6 +158,13 @@ def write_aggregate_report(
         created_at_utc=datetime.now(timezone.utc).isoformat(),
     )
     root.mkdir(parents=True, exist_ok=True)
+    config_temporary = root / ".aggregate_report.config.partial.json"
+    config_target = root / REPORT_CONFIG_FILENAME
+    config_temporary.write_text(
+        json.dumps(config, indent=2, sort_keys=True, default=str) + "\n",
+        encoding="utf-8",
+    )
+    os.replace(config_temporary, config_target)
     temporary = root / ".aggregate_report.partial.json"
     target = root / "aggregate_report.manifest.json"
     temporary.write_text(
@@ -127,7 +178,7 @@ def write_aggregate_report(
 def read_aggregate_report(
     root: str | Path,
     *,
-    expected_config: Mapping[str, Any],
+    expected_config: Mapping[str, Any] | None = None,
 ) -> tuple[DevelopmentReport, AggregateReportManifest]:
     """Validate and load a persisted aggregate report without patient rows."""
     root = Path(root)
@@ -140,17 +191,23 @@ def read_aggregate_report(
         raise ArtifactValidationError("Malformed aggregate report manifest") from error
     if manifest.schema_version != 1:
         raise ArtifactValidationError("Unsupported aggregate report schema")
-    config_hash = canonical_sha256(expected_config)
+    stored_config = read_report_config(root)
+    config_hash = canonical_sha256(stored_config)
     if manifest.config_sha256 != config_hash:
+        raise ArtifactValidationError("Aggregate report configuration mismatch")
+    if (
+        expected_config is not None
+        and canonical_sha256(expected_config) != manifest.config_sha256
+    ):
         raise ArtifactValidationError("Aggregate report configuration mismatch")
     store = ArtifactStore(root)
     tables = {}
     for name in REPORT_TABLES:
-        artifact = store.validate(name, expected_config=expected_config)
+        artifact = store.validate(name, expected_config=stored_config)
         if manifest.table_sha256.get(name) != artifact.sha256:
             raise ArtifactValidationError("Aggregate report table hash mismatch")
         frame = store.read_dataframe(
-            name, validate=False, expected_config=expected_config
+            name, validate=False
         )
         _validate_aggregate_table(name, frame)
         tables[name] = frame
