@@ -61,6 +61,19 @@ cohort; it must not be simulated by sorting shifted MIMIC dates.
 
 No patient is shared across folds. Stratification is performed at patient level where possible. Report ICU type and outcome balance by partition. A grouped random split is a sensitivity analysis when temporal splitting is primary.
 
+La recalibración no forma parte del tuning cruzado. Una vez elegido y congelado
+el modelo, puede ajustarse un intercepto y pendiente logísticos en validation,
+con igual peso total por paciente, si se cumplen los mínimos de información de
+`config/calibration.json`. Los coeficientes se congelan antes de test; test no
+se usa nunca para decidir si recalibrar ni para volver a estimarlos.
+
+El informe agregado de development/validation se guarda localmente como tablas
+Parquet verificadas. Su configuración incorpora hashes de las fuentes y de los
+módulos analíticos; cada tabla tiene checksum y el conjunto recibe un SHA-256
+global. Se rechazan identificadores, tiempos individuales y conteos visibles en
+filas suprimidas. Este artefacto permite reproducir figuras sin recalcular el
+bootstrap y proporciona la huella que se fija antes de abrir test.
+
 ## 6. Models
 
 1. Reference models: prevalence/intercept-only and a small prespecified clinical baseline.

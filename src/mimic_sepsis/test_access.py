@@ -8,6 +8,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from .model_freeze import validate_model_freeze
+
 
 REQUIRED_APPROVER_ROLES = frozenset({"clinical_lead", "statistical_lead"})
 
@@ -39,15 +41,11 @@ def validate_test_release(
     release_path = Path(release_path)
     model_freeze_path = Path(model_freeze_path)
     release = json.loads(release_path.read_text(encoding="utf-8"))
-    freeze = json.loads(model_freeze_path.read_text(encoding="utf-8"))
+    validate_model_freeze(model_freeze_path)
     if release.get("schema_version") != 1:
         raise ValueError("Unsupported test-release schema_version")
     if release.get("approval_status") != "approved":
         raise ValueError("Test release is not approved")
-    if freeze.get("status") != "frozen":
-        raise ValueError("Model specification is not frozen")
-    if freeze.get("test_access") != "locked_until_release":
-        raise ValueError("Model freeze lacks locked test-access status")
     if release.get("data_version") != str(expected_data_version):
         raise ValueError("Test release data_version does not match the extract")
     roles = tuple(sorted(set(release.get("approver_roles", ()))))

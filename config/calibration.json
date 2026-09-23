@@ -1,0 +1,8 @@
+{
+  "fit_partition": "validation",
+  "method": "logistic_intercept_and_slope",
+  "minimum_event_patients": 100,
+  "minimum_nonevent_patients": 100,
+  "schema_version": 1,
+  "test_access": "forbidden_for_fitting"
+}

@@ -335,6 +335,10 @@ En MIMIC-IV no-demo, el pipeline tampoco materializa test por defecto. Su
 creación exige puerta de protocolo, modelo congelado y autorización local de
 roles clínico/estadístico ligada al SHA-256 del modelo.
 
+El informe pre-test persiste solo agregados verificados. Su hash global liga
+artefactos fuente, configuración y código analítico, y pasa a formar parte de
+la especificación del modelo congelado.
+
 El horizonte primario es 6 h y su intervalo es `(L,L+6 h]`; esta convención
 está congelada en D009/D012 y cubierta por pruebas de frontera.
 
@@ -363,6 +367,8 @@ Los siguientes hitos continúan abiertos:
 - revisión clínica del proxy de shock séptico y sensibilidades de fluidos/MAP;
 - cálculo formal del tamaño muestral con los recuentos del conjunto completo;
 - congelación del conjunto primario, regresión penalizada y gradient boosting;
+- decisión y ajuste de recalibración en validation solo si supera los mínimos
+  de pacientes preespecificados;
 - repetición en el conjunto completo de calibración, utilidad clínica y
   subgrupos ya implementados y validados técnicamente en el demo;
 - ejecución sobre MIMIC-IV completo y validación externa.

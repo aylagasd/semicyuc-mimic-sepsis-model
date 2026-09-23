@@ -15,9 +15,27 @@ from mimic_sepsis.test_access import validate_test_release
 def _files(tmp_path, *, status="frozen", data_version="3.1", roles=None):
     freeze = tmp_path / "model_freeze.json"
     freeze.write_text(json.dumps({
+        "schema_version": 1,
         "status": status,
         "test_access": "locked_until_release",
+        "frozen_at_utc": "2026-09-23T09:00:00Z",
+        "data_version": data_version,
+        "source_run_id": "full-3.1-example",
+        "code_commit": "abcdef1234567890",
+        "primary_target": "sepsis3",
+        "horizon_hours": 6,
+        "feature_columns": ["heart_rate_last_24h", "map_min_24h"],
         "primary_model": "logistic",
+        "model_parameters": {"C": 1.0},
+        "calibration": {"method": "none", "intercept": None, "slope": None},
+        "operating_thresholds": [0.05, 0.1],
+        "decision_statuses": {
+            key: "frozen" for key in (
+                "D002", "D004", "D010", "D011", "D014", "D016", "D027", "D029",
+                "D031",
+            )
+        },
+        "validation_report_sha256": "a" * 64,
     }))
     digest = hashlib.sha256(freeze.read_bytes()).hexdigest()
     release = tmp_path / "test_release.local.json"

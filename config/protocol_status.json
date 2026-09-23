@@ -6,12 +6,14 @@
     "D011": "pending",
     "D014": "provisional",
     "D016": "provisional",
-    "D027": "provisional"
+    "D027": "provisional",
+    "D029": "provisional",
+    "D031": "frozen"
   },
   "phase_requirements": {
     "phenotype": ["D002", "D004", "D010", "D011"],
     "model": ["D002", "D004", "D010", "D011", "D014", "D016", "D027"],
-    "test": ["D002", "D004", "D010", "D011", "D014", "D016", "D027"]
+    "test": ["D002", "D004", "D010", "D011", "D014", "D016", "D027", "D029", "D031"]
   },
-  "schema_version": 2
+  "schema_version": 4
 }

@@ -137,6 +137,14 @@ python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
 La autorización debe declarar roles clínico y estadístico, versión de datos,
 momento UTC, motivo y el SHA-256 exacto del modelo congelado. El archivo local
 está ignorado por Git; no contiene contraseñas ni se imprime en la salida.
+La especificación congelada se valida contra
+`config/model_freeze.example.json`: debe fijar commit y run de origen, outcome,
+horizonte, variables, modelo y parámetros, calibración, umbrales operativos,
+estado de decisiones y hash del informe agregado de validation.
+Ese informe se genera mediante el notebook 13 y se valida como un conjunto de
+tablas exclusivamente agregadas; su manifiesto
+`aggregate_report.manifest.json` contiene el SHA-256 que debe copiarse al
+documento de congelación.
 
 Cada derivado encadena hashes de sus entradas concretas; cambiar una parte
 invalida sus descendientes. El tamaño de lote debe ajustarse con una prueba de
@@ -149,7 +157,7 @@ recorrido monolítico.
 
 ## 5. Puertas antes de ejecutar el conjunto completo
 
-1. congelar D002, D004, D010, D011, D014, D016 y D027;
+1. congelar D002, D004, D010, D011, D014, D016 y D027 antes del modelado, y D029 antes de test; D031 ya fija el contrato verificable del informe;
 2. ejecutar preflight de archivos o conexión read-only;
 3. registrar versión, checksum/configuración y commit del código;
 4. generar la partición por paciente antes de cualquier ajuste empírico;

@@ -1,5 +1,32 @@
 {
+  "calibration": {
+    "intercept": null,
+    "method": "none",
+    "slope": null
+  },
+  "code_commit": "GIT_COMMIT_HASH",
+  "data_version": "3.1",
+  "decision_statuses": {
+    "D002": "provisional",
+    "D004": "provisional",
+    "D010": "provisional",
+    "D011": "pending",
+    "D014": "provisional",
+    "D016": "provisional",
+    "D027": "provisional",
+    "D029": "provisional",
+    "D031": "frozen"
+  },
+  "feature_columns": [],
+  "frozen_at_utc": "YYYY-MM-DDTHH:MM:SSZ",
+  "horizon_hours": 6,
+  "model_parameters": {},
+  "operating_thresholds": [],
   "primary_model": null,
+  "primary_target": "sepsis3",
+  "schema_version": 1,
+  "source_run_id": "FULL_PIPELINE_RUN_ID",
   "status": "draft",
-  "test_access": "locked_until_release"
+  "test_access": "locked_until_release",
+  "validation_report_sha256": "SHA256_OF_AGGREGATE_VALIDATION_REPORT"
 }
