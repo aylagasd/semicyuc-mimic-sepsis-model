@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import asdict
 import json
 from pathlib import Path
+import re
 from typing import Any
 
 import duckdb
-import pandas as pd
 
 from .artifacts import ArtifactStore, ArtifactValidationError
 from .chunked_landmarks import PARTITIONS, TARGETS, validate_partitions
@@ -16,9 +16,8 @@ from .chunked_sofa import (
     PartitionedDatasetManifest, _canonical_hash, validate_extract,
     validate_partitioned_dataset,
 )
-from .feature_sources import normalize_lab_feature_events, normalize_vital_events
+from .feature_sources_sql import read_normalized_feature_events_sql
 from .features import build_numeric_feature_matrix
-from .full_extract import _sql_path
 
 
 class ChunkedFeatureBuilder:
@@ -34,7 +33,11 @@ class ChunkedFeatureBuilder:
         code_version: str = "unknown",
         partitions: tuple[str, ...] = PARTITIONS,
         allow_non_demo_test: bool = False,
+        duckdb_memory_limit: str = "8GB",
+        duckdb_temp_dir: Path | None = None,
     ) -> None:
+        if not re.fullmatch(r"[1-9][0-9]*(?:KB|MB|GB|TB)", duckdb_memory_limit):
+            raise ValueError("duckdb_memory_limit must be a positive storage size")
         self.source_dir = Path(source_dir)
         self.landmark_run = Path(landmark_run)
         self.output_root = Path(output_root)
@@ -42,6 +45,10 @@ class ChunkedFeatureBuilder:
         self.code_version = str(code_version)
         self.partitions = validate_partitions(partitions)
         self.allow_non_demo_test = bool(allow_non_demo_test)
+        self.duckdb_memory_limit = duckdb_memory_limit
+        self.duckdb_temp_dir = Path(
+            duckdb_temp_dir or self.output_root / "duckdb_tmp"
+        )
 
     def run(self, *, resume: bool = False) -> dict[str, PartitionedDatasetManifest]:
         sources = validate_extract(self.source_dir)
@@ -68,8 +75,8 @@ class ChunkedFeatureBuilder:
             self.feature_config_path.read_text(encoding="utf-8")
         )
         config: dict[str, Any] = {
-            "backend": "partitioned-features",
-            "chunked_feature_schema_version": 1,
+            "backend": "duckdb-sql-pushdown-pandas-windows",
+            "chunked_feature_schema_version": 2,
             "code_version": self.code_version,
             "source_config_sha256": next(iter(sources.values())).config_sha256,
             "landmark_config_sha256": next(iter(landmarks.values())).config_sha256,
@@ -82,6 +89,7 @@ class ChunkedFeatureBuilder:
             },
             "features": feature_config,
             "materialized_partitions": list(self.partitions),
+            "duckdb_memory_limit": self.duckdb_memory_limit,
         }
         config_hash = _canonical_hash(config)
         run_root = self.output_root / config_hash[:16]
@@ -92,11 +100,15 @@ class ChunkedFeatureBuilder:
         collected: dict[str, list[dict[str, Any]]] = {
             name: [] for name in feature_names
         }
-        cohort_path = _sql_path(self.source_dir / "cohort_stays.parquet")
-        chart_path = _sql_path(self.source_dir / "chartevents_reduced.parquet")
-        lab_path = _sql_path(self.source_dir / "labevents_reduced.parquet")
         connection = duckdb.connect()
         try:
+            self.duckdb_temp_dir.mkdir(parents=True, exist_ok=True)
+            connection.execute(
+                f"SET memory_limit='{self.duckdb_memory_limit}'"
+            )
+            connection.execute(
+                "SET temp_directory=?", [str(self.duckdb_temp_dir)]
+            )
             for landmark_name, dataset in landmarks.items():
                 feature_name = landmark_name.replace("_landmarks", "_features")
                 for batch_index, item in enumerate(dataset.parts):
@@ -124,25 +136,15 @@ class ChunkedFeatureBuilder:
                     frame = connection.execute(
                         "SELECT * FROM read_parquet(?)", [str(landmark_path)]
                     ).fetchdf()
-                    keys = frame[["subject_id", "hadm_id", "stay_id"]].drop_duplicates()
-                    connection.register("_keys", keys)
-                    cohort = connection.execute(
-                        f"SELECT cohort.* FROM read_parquet('{cohort_path}') cohort "
-                        "JOIN _keys USING(subject_id,hadm_id,stay_id)"
-                    ).fetchdf()
-                    chart = connection.execute(
-                        f"SELECT source.* FROM read_parquet('{chart_path}') source "
-                        "JOIN (SELECT DISTINCT stay_id FROM _keys) keys USING(stay_id)"
-                    ).fetchdf()
-                    labs = connection.execute(
-                        f"SELECT source.* FROM read_parquet('{lab_path}') source "
-                        "JOIN (SELECT DISTINCT subject_id,hadm_id FROM _keys) keys "
-                        "USING(subject_id,hadm_id)"
-                    ).fetchdf()
-                    events = pd.concat(
-                        [normalize_vital_events(chart),
-                         normalize_lab_feature_events(labs, cohort)],
-                        ignore_index=True,
+                    events = read_normalized_feature_events_sql(
+                        connection,
+                        landmark_path=landmark_path,
+                        cohort_path=self.source_dir / "cohort_stays.parquet",
+                        chartevents_path=self.source_dir / "chartevents_reduced.parquet",
+                        labevents_path=self.source_dir / "labevents_reduced.parquet",
+                        maximum_lookback_hours=max(
+                            int(value) for value in feature_config["lookbacks_hours"]
+                        ),
                     )
                     matrix = build_numeric_feature_matrix(
                         frame[["subject_id", "hadm_id", "stay_id", "landmark_time"]],

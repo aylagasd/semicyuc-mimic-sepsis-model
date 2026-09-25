@@ -167,7 +167,8 @@ Los módulos principales son:
 - `sofa*.py`: normalización, componentes y composición horaria;
 - `sepsis_labels.py`: enlace temporal entre infección y SOFA;
 - `landmarks.py` y `splits.py`: conjuntos de riesgo, censura y separación por paciente;
-- `feature_sources.py` y `features.py`: disponibilidad y agregación temporal de predictores;
+- `feature_sources.py`, `feature_sources_sql.py` y `features.py`: normalización
+  SQL con poda previa, disponibilidad y agregación temporal de predictores;
 - `artifacts.py`: Parquet atómico, manifiestos, hashes y validación;
 - `db.py` y `config.py`: conexión PostgreSQL impuesta como solo lectura;
 - `deployment.py`: preflight de la distribución completa sin leer pacientes.
@@ -176,9 +177,11 @@ Los módulos principales son:
 - `pretest_inputs.py` y `resource_planning.py`: lectura proyectada del horizonte
   y variables primarios, más preflight agregado para el perfil de 32 GiB.
 
-DuckDB se usa como motor local fuera de memoria para reducir CSV, seleccionar
-las filas de cada lote, inspeccionar Parquet y validar artefactos. La lógica
-clínica se implementa con funciones Python/pandas probadas sobre lotes acotados.
+DuckDB se usa como motor SQL local fuera de memoria para reducir CSV,
+seleccionar las filas de cada lote, normalizar y enlazar fuentes de features,
+inspeccionar Parquet y validar artefactos. La agregación clínica final y los
+modelos se implementan con funciones Python/pandas probadas sobre lotes
+acotados.
 PostgreSQL sigue siendo un backend alternativo para una instalación
 institucional, pero no es obligatorio para ejecutar la distribución CSV.
 

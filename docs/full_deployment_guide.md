@@ -114,9 +114,15 @@ los Parquet completos en pandas:
 ```bash
 python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
   --output-root /ruta/derivados/full_pipeline \
-  --batch-size 100 \
+  --compute-profile config/compute_32gb.json \
   --resume
 ```
+
+El perfil fija por defecto lotes de 100 estancias y un máximo DuckDB de 8 GB.
+Durante features, DuckDB ejecuta en SQL la normalización, el enlace temporal de
+laboratorios y la poda de eventos antes de materializar pandas. `--batch-size`
+y `--duckdb-memory-limit` permiten overrides explícitos para un benchmark
+registrado; no deben cambiarse a ciegas durante una ejecución científica.
 
 En una versión no-demo, este comando exige la puerta `model` y materializa
 solo `development` y `validation`. Los constructores de bajo nivel también

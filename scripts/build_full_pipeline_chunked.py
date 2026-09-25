@@ -20,7 +20,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source_dir", type=Path)
     parser.add_argument("--output-root", type=Path, default=Path("data/derived/full_pipeline"))
-    parser.add_argument("--batch-size", type=int, default=250)
+    parser.add_argument("--batch-size", type=int)
+    parser.add_argument(
+        "--compute-profile", type=Path, default=Path("config/compute_32gb.json")
+    )
+    parser.add_argument("--duckdb-memory-limit")
+    parser.add_argument("--duckdb-temp-dir", type=Path)
     parser.add_argument("--code-version")
     parser.add_argument(
         "--protocol-status", type=Path, default=Path("config/protocol_status.json")
@@ -38,6 +43,21 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     repo = Path(__file__).resolve().parents[1]
+    profile_path = args.compute_profile
+    if not profile_path.is_absolute():
+        profile_path = repo / profile_path
+    compute_profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    if compute_profile.get("schema_version") != 1:
+        raise ValueError("Unsupported compute profile")
+    batch_size = (
+        args.batch_size
+        if args.batch_size is not None
+        else int(compute_profile["chunk_batch_size"])
+    )
+    duckdb_memory_limit = (
+        args.duckdb_memory_limit
+        or str(compute_profile["duckdb_memory_limit"])
+    )
     sources = validate_extract(args.source_dir)
     data_version = next(iter(sources.values())).data_version
     partitions = PARTITIONS
@@ -73,7 +93,7 @@ def main() -> int:
     code_version = args.code_version or detect_code_version(repo)
     sofa = ChunkedSofaBuilder(
         args.source_dir, args.output_root / "sofa",
-        batch_size=args.batch_size, code_version=code_version,
+        batch_size=batch_size, code_version=code_version,
     ).run(resume=args.resume)
     sofa_run = args.output_root / "sofa" / sofa.config_sha256[:16]
     labels = ChunkedLabelBuilder(
@@ -100,12 +120,18 @@ def main() -> int:
         code_version=code_version,
         partitions=partitions,
         allow_non_demo_test=args.materialize_test and data_version != "2.2",
+        duckdb_memory_limit=duckdb_memory_limit,
+        duckdb_temp_dir=args.duckdb_temp_dir,
     ).run(resume=args.resume)
     print(json.dumps({
         "sofa": {"run_id": sofa_run.name, "rows": sofa.rows},
         "labels": {name: item.rows for name, item in labels.items()},
         "landmarks": {name: item.rows for name, item in landmarks.items()},
         "features": {name: item.rows for name, item in features.items()},
+        "compute_profile": {
+            "batch_size": batch_size,
+            "duckdb_memory_limit": duckdb_memory_limit,
+        },
         "materialized_partitions": list(partitions),
     }, indent=2, sort_keys=True))
     return 0

@@ -169,7 +169,8 @@ python scripts/preflight_mimic_files.py /ruta/mimiciv/3.1
 python scripts/extract_full_mimic.py /ruta/mimiciv/3.1 \
   --data-version 3.1 --output-dir /ruta/derivados/full_extract --resume
 python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
-  --output-root /ruta/derivados/full_pipeline --batch-size 250 --resume
+  --output-root /ruta/derivados/full_pipeline \
+  --compute-profile config/compute_32gb.json --resume
 ```
 
 Los datos y derivados permanecen fuera de Git. Consulte

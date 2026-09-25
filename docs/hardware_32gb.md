@@ -50,7 +50,7 @@ perfil.
    python scripts/build_full_pipeline_chunked.py \
      /ruta/derivados/full_extract \
      --output-root /ruta/derivados/full_pipeline \
-     --batch-size 100 --resume
+     --compute-profile config/compute_32gb.json --resume
    ```
 
 3. No ejecutar en paralelo etapas que materialicen pandas. El perfil fija como
@@ -66,6 +66,10 @@ perfil.
 - DuckDB aplica predicados y proyección directamente sobre Parquet: para el
   informe primario solo llegan a pandas el horizonte de 6 h observado, las
   claves necesarias y cinco predictores.
+- En la construcción de features, una consulta SQL normaliza itemids y
+  unidades, enlaza laboratorios con la estancia por tiempo de espécimen y
+  descarta eventos que no pueden entrar en ninguna ventana del lote. Python
+  conserva el agregador final `[L-W,L)` para mantener el contrato ya probado.
 - Todos los ficheros y manifiestos se validan antes de leer la proyección; la
   optimización no omite controles de integridad ni leakage.
 - El bootstrap por paciente usa códigos de clúster y pesos de frecuencia. Cada
@@ -80,6 +84,12 @@ física de pacientes, incluyendo tamaños de clúster desiguales y empates. En l
 Raspberry de desarrollo, un benchmark sintético de 9.000 filas, 300 pacientes y
 40 réplicas pasó de 3,36 s a 0,96 s (3,5 veces); es evidencia de ingeniería,
 no una predicción del tiempo total sobre MIMIC-IV.
+
+En una parte real del demo con 5.684 filas de landmarks, el pushdown de fuentes
+redujo la memoria residente de entrada de 1.569.595 a 570.350 bytes y el tiempo
+de preparación de 0,198 a 0,087 s. Las seis matrices completas del demo —dos
+outcomes por tres particiones— conservaron equivalencia exacta de multiconjunto
+frente al backend anterior.
 
 ## Criterio de aceptación en el i5
 
