@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 import hashlib
 import json
@@ -137,6 +138,99 @@ def validate_partitioned_dataset(
     if total != manifest.rows:
         raise ArtifactValidationError("Partitioned dataset total row count mismatch")
     return manifest
+
+
+def partitioned_dataset_sha256(manifest: PartitionedDatasetManifest) -> str:
+    """Return a stable digest of a validated dataset manifest and its parts."""
+    return _canonical_hash(asdict(manifest))
+
+
+def read_partitioned_dataset(
+    run_root: Path,
+    artifact: str,
+    *,
+    validated_manifest: PartitionedDatasetManifest | None = None,
+    columns: Sequence[str] | None = None,
+    filters: Mapping[str, Any] | None = None,
+) -> pd.DataFrame:
+    """Validate all parts, then read an optional safe projection/filter."""
+    root = Path(run_root)
+    manifest = validated_manifest or validate_partitioned_dataset(root, artifact)
+    if manifest.artifact != artifact:
+        raise ArtifactValidationError("Validated dataset identity mismatch")
+    if not manifest.parts:
+        raise ArtifactValidationError(
+            f"Partitioned dataset contains no parts: {artifact}"
+        )
+    paths = [
+        str(root / "parts" / f"{item['name']}.parquet")
+        for item in manifest.parts
+    ]
+    connection = duckdb.connect()
+    try:
+        description = connection.execute(
+            "DESCRIBE SELECT * FROM read_parquet(?)", [paths]
+        ).fetchdf()
+        available = set(description["column_name"].astype(str))
+        selected = list(columns) if columns is not None else list(
+            description["column_name"].astype(str)
+        )
+        if not selected or len(selected) != len(set(selected)):
+            raise ValueError("Projected columns must be non-empty and unique")
+        predicates = {} if filters is None else dict(filters)
+        requested = set(selected) | set(predicates)
+        invalid = sorted(
+            column for column in requested
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", str(column))
+        )
+        if invalid:
+            raise ValueError("Invalid projected/filter column name")
+        missing = sorted(requested - available)
+        if missing:
+            raise ArtifactValidationError(
+                "Partitioned dataset lacks columns: " + ", ".join(missing)
+            )
+        projection = ", ".join(f'"{column}"' for column in selected)
+        where = ""
+        parameters: list[Any] = [paths]
+        if predicates:
+            where = " WHERE " + " AND ".join(
+                f'"{column}" = ?' for column in predicates
+            )
+            parameters.extend(predicates.values())
+        frame = connection.execute(
+            f"SELECT {projection} FROM read_parquet(?){where}", parameters
+        ).fetchdf()
+    finally:
+        connection.close()
+    if not predicates and len(frame) != manifest.rows:
+        raise ArtifactValidationError("Partitioned dataset row count changed on read")
+    return frame
+
+
+def partitioned_dataset_columns(
+    run_root: Path,
+    artifact: str,
+    *,
+    validated_manifest: PartitionedDatasetManifest | None = None,
+) -> tuple[str, ...]:
+    """Return the physical Parquet schema after dataset integrity validation."""
+    root = Path(run_root)
+    manifest = validated_manifest or validate_partitioned_dataset(root, artifact)
+    if manifest.artifact != artifact or not manifest.parts:
+        raise ArtifactValidationError("Invalid validated partitioned dataset")
+    paths = [
+        str(root / "parts" / f"{item['name']}.parquet")
+        for item in manifest.parts
+    ]
+    connection = duckdb.connect()
+    try:
+        description = connection.execute(
+            "DESCRIBE SELECT * FROM read_parquet(?)", [paths]
+        ).fetchdf()
+    finally:
+        connection.close()
+    return tuple(description["column_name"].astype(str))
 
 
 class ChunkedSofaBuilder:

@@ -1,0 +1,8 @@
+{
+  "backend": "partitioned",
+  "feature_run": "/ruta/derivados/full_pipeline/features/RUN_ID",
+  "landmark_run": "/ruta/derivados/full_pipeline/landmarks/RUN_ID",
+  "schema_version": 1,
+  "source_extract_dir": "/ruta/derivados/full_extract",
+  "target": "sepsis3"
+}

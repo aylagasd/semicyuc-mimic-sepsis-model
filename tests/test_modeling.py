@@ -38,6 +38,20 @@ def test_assembly_keeps_only_observed_primary_horizon():
     assert result.loc[0, "heart_rate_last_24h"] == 80
 
 
+def test_assembly_distinguishes_missing_values_from_missing_feature_row():
+    landmarks, features = _tables()
+    features.loc[0, "heart_rate_last_24h"] = np.nan
+    result = assemble_modeling_table(landmarks, features, horizon_hours=6)
+    assert len(result) == 1
+    assert pd.isna(result.loc[0, "heart_rate_last_24h"])
+
+
+def test_assembly_rejects_a_physically_missing_feature_row():
+    landmarks, features = _tables()
+    with pytest.raises(ValueError, match="no matching feature row"):
+        assemble_modeling_table(landmarks, features.iloc[1:], horizon_hours=6)
+
+
 def test_equal_patient_weights_equalize_total_influence():
     table = pd.DataFrame({"subject_id": [1, 1, 1, 2]})
     weights = equal_patient_weights(table)

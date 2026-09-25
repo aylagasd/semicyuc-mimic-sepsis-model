@@ -45,7 +45,7 @@ python scripts/extract_full_mimic.py /ruta/mimiciv/3.1 \
   --data-version 3.1 \
   --output-dir /ruta/derivados/full_extract \
   --temp-dir /ruta/disco_temporal/duckdb \
-  --memory-limit 16GB \
+  --memory-limit 8GB \
   --resume
 ```
 
@@ -55,6 +55,8 @@ las columnas requeridas en Parquet comprimido. Cada salida tiene un manifiesto
 con número de filas, esquema, versión, hash de configuración y SHA-256. Con
 `--resume` solo se reutiliza un artefacto cuyo hash y configuración coincidan.
 La salida del comando contiene exclusivamente recuentos y hashes agregados.
+El valor de 8 GB corresponde al perfil conservador i5/32 GiB documentado en
+[`hardware_32gb.md`](hardware_32gb.md); no es una necesidad metodológica.
 
 Antes de construir el fenotipo completo debe pasar además la puerta de
 protocolo:
@@ -112,7 +114,7 @@ los Parquet completos en pandas:
 ```bash
 python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
   --output-root /ruta/derivados/full_pipeline \
-  --batch-size 250 \
+  --batch-size 100 \
   --resume
 ```
 
@@ -153,6 +155,25 @@ comprobarse fuera del notebook, sin mostrar filas clínicas:
 ```bash
 python scripts/validate_pretest_report.py /ruta/al/informe
 ```
+
+Para ejecutar el notebook 13 sobre las salidas particionadas, cree la
+configuración local a partir de `config/pretest_source.example.json`. Debe
+apuntar al extracto reducido y a los run IDs concretos de landmarks y features;
+el cargador valida todos los checksums, versiones, metadatos y la separación de
+pacientes antes de materializar development/validation en memoria:
+
+```bash
+cp config/pretest_source.example.json config/pretest_source.local.json
+export SEMICYUC_PRETEST_SOURCE_CONFIG=config/pretest_source.local.json
+python scripts/preflight_pretest_memory.py config/pretest_source.local.json
+jupyter lab notebooks/13_final_report.ipynb
+```
+
+El archivo local está ignorado por Git. No admite una partición test y no debe
+contener credenciales. El preflight proyecta únicamente horizonte y variables
+primarios, estima el working set contra `config/compute_32gb.json` y falla antes
+del modelado si supera el presupuesto. Las tablas MIMIC-IV fuente nunca se
+cargan completas.
 
 Para preparar la congelación sin convertir un borrador en autorización, copie
 `config/model_selection.example.json` a `config/model_selection.local.json`,

@@ -8,7 +8,8 @@ import pytest
 
 from mimic_sepsis.artifacts import ArtifactValidationError
 from mimic_sepsis.chunked_sofa import (
-    ChunkedSofaBuilder, validate_extract, validate_partitioned_dataset,
+    ChunkedSofaBuilder, partitioned_dataset_sha256, read_partitioned_dataset,
+    validate_extract, validate_partitioned_dataset,
 )
 from mimic_sepsis.equivalence import compare_parquet
 from mimic_sepsis.full_extract import FullCSVExtractor
@@ -98,6 +99,17 @@ def test_chunked_sofa_equals_monolithic_for_multiple_batches(tmp_path):
     assert_frame_equal(actual, expected, check_dtype=False)
     validated = validate_partitioned_dataset(run_root, "sofa_hourly")
     assert validated.rows == len(expected)
+    loaded = read_partitioned_dataset(
+        run_root, "sofa_hourly", validated_manifest=validated
+    ).sort_values(["subject_id", "endtime", "stay_id", "hr"]).reset_index(drop=True)
+    assert_frame_equal(loaded, expected, check_dtype=False)
+    assert len(partitioned_dataset_sha256(validated)) == 64
+    projected = read_partitioned_dataset(
+        run_root, "sofa_hourly", validated_manifest=validated,
+        columns=["subject_id", "stay_id", "hr"], filters={"stay_id": 100},
+    )
+    assert list(projected.columns) == ["subject_id", "stay_id", "hr"]
+    assert set(projected["stay_id"]) == {100}
 
     expected_path = tmp_path / "expected.parquet"
     connection = duckdb.connect()
@@ -141,3 +153,17 @@ def test_partition_manifest_rejects_noncanonical_part_name(tmp_path):
     manifest_path.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(ArtifactValidationError, match="Invalid.*partition"):
         validate_partitioned_dataset(run_root, "sofa_hourly")
+
+
+def test_partition_projection_rejects_empty_or_duplicate_columns(tmp_path):
+    source = tmp_path / "extract"
+    _write_extract(source, _sources())
+    result = ChunkedSofaBuilder(
+        source, tmp_path / "score", batch_size=2, code_version="test"
+    ).run()
+    run_root = tmp_path / "score" / result.config_sha256[:16]
+    for columns in ([], ["stay_id", "stay_id"]):
+        with pytest.raises(ValueError, match="non-empty and unique"):
+            read_partitioned_dataset(
+                run_root, "sofa_hourly", columns=columns
+            )

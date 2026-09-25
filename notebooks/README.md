@@ -21,7 +21,7 @@ entradas, salidas, versión de datos, semilla y criterios de finalización.
 | 10 | `10_model_development.ipynb` | Python + R | Ensamblar el horizonte primario y validar referencias de prevalencia/regresión clínica sin abrir el test. |
 | 11 | `11_model_evaluation.ipynb` | Python + R | Evaluación interna y comparación pareada con bootstrap por paciente; figura `ggplot2`, sin abrir test. |
 | 12 | `12_sensitivity_and_subgroups.ipynb` | Python + R | Sensibilidades de cohorte, horizonte y lookback; contrato de subgrupos con supresión por privacidad. |
-| 13 | `13_final_report.ipynb` | Python + R | Informe pre-test; modelos, utilidad, subgrupos, missingness, readiness de calibración y figuras `ggplot2`. |
+| 13 | `13_final_report.ipynb` | Python + R | Informe pre-test; admite demo monolítico o fuente particionada development/validation explícita. En esta última proyecta horizonte/variables primarios y aplica el preflight de 32 GiB antes de modelos, utilidad, subgrupos, missingness, readiness de calibración y figuras `ggplot2`. |
 
 La secuencia 00–13 está implementada. El paso 13 sigue siendo un informe previo
 al test hasta ejecutar MIMIC-IV completo y congelar el modelo.

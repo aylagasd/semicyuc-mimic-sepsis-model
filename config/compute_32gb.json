@@ -1,0 +1,10 @@
+{
+  "chunk_batch_size": 100,
+  "duckdb_memory_limit": "8GB",
+  "fixed_overhead_gib": 2,
+  "maximum_parallel_workers": 2,
+  "maximum_ram_fraction": 0.75,
+  "schema_version": 1,
+  "target_ram_gib": 32,
+  "working_set_multiplier": 8
+}

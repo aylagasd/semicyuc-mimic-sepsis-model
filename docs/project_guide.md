@@ -51,7 +51,10 @@ fluidos continúa pendiente y se evaluará como sensibilidad.
 La fuente principal es MIMIC-IV. Durante el desarrollo local se usa
 **MIMIC-IV Demo v2.2**, que contiene una muestra pequeña destinada a comprobar
 que el código funciona. El análisis completo está previsto para
-**MIMIC-IV v3.1** en un equipo con más memoria y almacenamiento.
+**MIMIC-IV v3.1**. El recorrido por lotes y la proyección previa al modelado
+tienen un perfil conservador para un i5 con 32 GiB de RAM; véase
+[`hardware_32gb.md`](hardware_32gb.md). La primera ejecución completa deberá
+confirmar empíricamente memoria, tiempo y disco.
 
 El demo permite probar esquemas, enlaces, ventanas temporales y casos frontera.
 No permite entrenar un modelo útil, estimar prevalencias fiables ni evaluar su
@@ -170,6 +173,8 @@ Los módulos principales son:
 - `deployment.py`: preflight de la distribución completa sin leer pacientes.
 - `full_extract.py` y `chunked_*.py`: reducción fuera de memoria y recorrido
   acotado por lotes para MIMIC-IV completo.
+- `pretest_inputs.py` y `resource_planning.py`: lectura proyectada del horizonte
+  y variables primarios, más preflight agregado para el perfil de 32 GiB.
 
 DuckDB se usa como motor local fuera de memoria para reducir CSV, seleccionar
 las filas de cada lote, inspeccionar Parquet y validar artefactos. La lógica
@@ -342,6 +347,11 @@ la especificación del modelo congelado.
 Los comandos `validate_pretest_report.py` y `prepare_model_freeze.py` permiten
 verificar esa evidencia y enumerar todos los bloqueos restantes. El segundo
 solo genera un borrador y no puede autoautorizar la apertura del test.
+
+En el servidor completo, el notebook 13 recibe las rutas locales mediante
+`SEMICYUC_PRETEST_SOURCE_CONFIG`. El cargador acepta exclusivamente los
+artefactos particionados de development y validation, comprueba hashes y
+rechaza cualquier solapamiento de pacientes antes del modelado.
 
 El horizonte primario es 6 h y su intervalo es `(L,L+6 h]`; esta convención
 está congelada en D009/D012 y cubierta por pruebas de frontera.

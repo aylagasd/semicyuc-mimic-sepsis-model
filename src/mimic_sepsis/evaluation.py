@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-
-from .modeling import binary_metrics
-
 
 METRICS = ("auroc", "auprc", "brier", "log_loss")
 
@@ -36,8 +34,27 @@ def _sigmoid(value: np.ndarray) -> np.ndarray:
     return result
 
 
+def _frequency_weights(
+    sample_weight: Sequence[float] | None, length: int
+) -> np.ndarray:
+    if sample_weight is None:
+        return np.ones(length, dtype=float)
+    weights = np.asarray(sample_weight, dtype=float)
+    if (
+        weights.ndim != 1 or len(weights) != length
+        or not np.isfinite(weights).all() or (weights < 0).any()
+        or weights.sum() <= 0
+    ):
+        raise ValueError("sample_weight must be finite, non-negative and aligned")
+    return weights
+
+
 def calibration_metrics(
-    outcome: Sequence[int], probability: Sequence[float], *, epsilon: float = 1e-6
+    outcome: Sequence[int],
+    probability: Sequence[float],
+    *,
+    epsilon: float = 1e-6,
+    sample_weight: Sequence[float] | None = None,
 ) -> dict[str, float]:
     """Estimate calibration-in-the-large and logistic calibration slope.
 
@@ -46,9 +63,10 @@ def calibration_metrics(
     returned as NaN rather than replaced with a finite value.
     """
     y, p = _binary_arrays(outcome, probability)
+    frequency = _frequency_weights(sample_weight, len(y))
     if not 0 < epsilon < 0.5:
         raise ValueError("epsilon must be in (0, 0.5)")
-    if np.unique(y).size < 2:
+    if frequency[y == 0].sum() <= 0 or frequency[y == 1].sum() <= 0:
         return {
             "calibration_intercept": np.nan,
             "calibration_model_intercept": np.nan,
@@ -59,11 +77,13 @@ def calibration_metrics(
     calibration_intercept = 0.0
     for _ in range(25):
         fitted_offset = _sigmoid(logit + calibration_intercept)
-        information = float(np.sum(fitted_offset * (1 - fitted_offset)))
+        information = float(np.sum(
+            frequency * fitted_offset * (1 - fitted_offset)
+        ))
         if information <= 1e-12:
             calibration_intercept = np.nan
             break
-        step = float(np.sum(y - fitted_offset) / information)
+        step = float(np.sum(frequency * (y - fitted_offset)) / information)
         calibration_intercept += step
         if not np.isfinite(calibration_intercept) or abs(calibration_intercept) > 50:
             calibration_intercept = np.nan
@@ -73,15 +93,19 @@ def calibration_metrics(
 
     slope = np.nan
     free_intercept = np.nan
-    if float(np.std(logit)) > 1e-12:
+    logit_mean = float(np.average(logit, weights=frequency))
+    logit_variance = float(np.average(
+        (logit - logit_mean) ** 2, weights=frequency
+    ))
+    if logit_variance > 1e-24:
         design = np.column_stack([np.ones(len(y)), logit])
         coefficient = np.array([0.0, 1.0])
         converged = False
         for _ in range(100):
             fitted = _sigmoid(design @ coefficient)
-            weights = np.clip(fitted * (1 - fitted), 1e-12, None)
+            weights = frequency * np.clip(fitted * (1 - fitted), 1e-12, None)
             information = design.T @ (weights[:, None] * design)
-            score = design.T @ (y - fitted)
+            score = design.T @ (frequency * (y - fitted))
             try:
                 step = np.linalg.solve(information, score)
             except np.linalg.LinAlgError:
@@ -253,6 +277,101 @@ def _validate_inputs(
     return values
 
 
+@dataclass(frozen=True)
+class _WeightedMetricWorkspace:
+    """Probability-order workspace reused across patient bootstrap draws."""
+
+    outcome: np.ndarray
+    probability: np.ndarray
+    order: np.ndarray
+    sorted_outcome: np.ndarray
+    group_code: np.ndarray
+    squared_error: np.ndarray
+    row_log_loss: np.ndarray
+
+    @classmethod
+    def build(
+        cls, outcome: Sequence[int], probability: Sequence[float]
+    ) -> "_WeightedMetricWorkspace":
+        y, p = _binary_arrays(outcome, probability)
+        order = np.argsort(p, kind="stable")
+        sorted_probability = p[order]
+        group_code = np.cumsum(np.r_[
+            True, sorted_probability[1:] != sorted_probability[:-1]
+        ]).astype(np.int64) - 1
+        epsilon = np.finfo(p.dtype).eps
+        clipped = np.clip(p, epsilon, 1 - epsilon)
+        return cls(
+            outcome=y,
+            probability=p,
+            order=order,
+            sorted_outcome=y[order],
+            group_code=group_code,
+            squared_error=(p - y) ** 2,
+            row_log_loss=-(y * np.log(clipped) + (1 - y) * np.log1p(-clipped)),
+        )
+
+    def metrics(self, sample_weight: Sequence[float]) -> dict[str, float]:
+        weights = _frequency_weights(sample_weight, len(self.outcome))
+        total = float(weights.sum())
+        events = float(weights @ self.outcome)
+        nonevents = total - events
+        base = {
+            "n": total,
+            "events": events,
+            "prevalence": events / total,
+            "brier": float(weights @ self.squared_error / total),
+            "log_loss": float(weights @ self.row_log_loss / total),
+        }
+        if events <= 0 or nonevents <= 0:
+            return {**base, "auroc": np.nan, "auprc": np.nan}
+        sorted_weight = weights[self.order]
+        positive = np.bincount(
+            self.group_code,
+            weights=sorted_weight * self.sorted_outcome,
+        )
+        negative = np.bincount(
+            self.group_code,
+            weights=sorted_weight * (1 - self.sorted_outcome),
+        )
+        lower_negative = np.cumsum(negative) - negative
+        auroc = float(
+            np.sum(positive * (lower_negative + 0.5 * negative))
+            / (events * nonevents)
+        )
+        descending_positive = positive[::-1]
+        descending_negative = negative[::-1]
+        cumulative_positive = np.cumsum(descending_positive)
+        cumulative_total = np.cumsum(
+            descending_positive + descending_negative
+        )
+        precision = np.divide(
+            cumulative_positive,
+            cumulative_total,
+            out=np.zeros_like(cumulative_positive),
+            where=cumulative_total > 0,
+        )
+        auprc = float(np.sum(
+            precision * descending_positive / events
+        ))
+        return {**base, "auroc": auroc, "auprc": auprc}
+
+
+def _cluster_codes(table: pd.DataFrame) -> tuple[np.ndarray, int]:
+    codes, subjects = pd.factorize(table["subject_id"], sort=False)
+    if len(subjects) < 2:
+        raise ValueError("at least two patients are required")
+    return codes.astype(np.int64, copy=False), len(subjects)
+
+
+def _bootstrap_row_weights(
+    rng: np.random.Generator, patient_codes: np.ndarray, patient_count: int
+) -> np.ndarray:
+    sampled = rng.choice(patient_count, size=patient_count, replace=True)
+    counts = np.bincount(sampled, minlength=patient_count)
+    return counts[patient_codes]
+
+
 def patient_cluster_bootstrap_comparison(
     table: pd.DataFrame,
     reference_probability: Sequence[float],
@@ -270,21 +389,18 @@ def patient_cluster_bootstrap_comparison(
         raise ValueError("replicates must be positive")
     reference = _validate_inputs(table, reference_probability, "reference")
     candidate = _validate_inputs(table, candidate_probability, "candidate")
-    subjects = table["subject_id"].drop_duplicates().to_numpy()
-    if len(subjects) < 2:
-        raise ValueError("at least two patients are required")
-    positions = {
-        subject: np.flatnonzero(table["subject_id"].to_numpy() == subject)
-        for subject in subjects
-    }
+    patient_codes, patient_count = _cluster_codes(table)
+    outcome = table["outcome"].to_numpy(int)
+    reference_workspace = _WeightedMetricWorkspace.build(outcome, reference)
+    candidate_workspace = _WeightedMetricWorkspace.build(outcome, candidate)
     rng = np.random.default_rng(seed)
     rows = []
     for replicate in range(1, replicates + 1):
-        sampled = rng.choice(subjects, size=len(subjects), replace=True)
-        index = np.concatenate([positions[subject] for subject in sampled])
-        outcome = table["outcome"].to_numpy(int)[index]
-        reference_metrics = binary_metrics(outcome, reference[index])
-        candidate_metrics = binary_metrics(outcome, candidate[index])
+        weights = _bootstrap_row_weights(
+            rng, patient_codes, patient_count
+        )
+        reference_metrics = reference_workspace.metrics(weights)
+        candidate_metrics = candidate_workspace.metrics(weights)
         rows.append({
             "replicate": replicate,
             **{
@@ -306,23 +422,21 @@ def patient_cluster_bootstrap_estimates(
     if replicates <= 0:
         raise ValueError("replicates must be positive")
     values = _validate_inputs(table, probability, "model")
-    subjects = table["subject_id"].drop_duplicates().to_numpy()
-    if len(subjects) < 2:
-        raise ValueError("at least two patients are required")
-    positions = {
-        subject: np.flatnonzero(table["subject_id"].to_numpy() == subject)
-        for subject in subjects
-    }
+    patient_codes, patient_count = _cluster_codes(table)
     outcome = table["outcome"].to_numpy(int)
+    workspace = _WeightedMetricWorkspace.build(outcome, values)
     rng = np.random.default_rng(seed)
     rows = []
     for replicate in range(1, replicates + 1):
-        sampled = rng.choice(subjects, size=len(subjects), replace=True)
-        index = np.concatenate([positions[subject] for subject in sampled])
+        weights = _bootstrap_row_weights(
+            rng, patient_codes, patient_count
+        )
         rows.append({
             "replicate": replicate,
-            **binary_metrics(outcome[index], values[index]),
-            **calibration_metrics(outcome[index], values[index]),
+            **workspace.metrics(weights),
+            **calibration_metrics(
+                outcome, values, sample_weight=weights
+            ),
         })
     return pd.DataFrame(rows)
 

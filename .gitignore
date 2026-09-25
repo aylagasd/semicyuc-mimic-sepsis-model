@@ -12,6 +12,7 @@ config/*.env
 config/test_release.local.json
 config/model_freeze.draft.local.json
 config/model_selection.local.json
+config/pretest_source.local.json
 data/
 .netrc
 .tools/

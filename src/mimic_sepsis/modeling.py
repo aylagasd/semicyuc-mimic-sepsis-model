@@ -49,10 +49,13 @@ def assemble_modeling_table(
     ].copy()
     if selected["outcome"].isna().any():
         raise ValueError("observed landmarks cannot have missing outcomes")
-    result = selected.merge(features, on=MODEL_KEYS, how="left", validate="one_to_one")
-    feature_columns = [column for column in features if column not in MODEL_KEYS]
-    if result[feature_columns].isna().all(axis=1).any():
+    result = selected.merge(
+        features, on=MODEL_KEYS, how="left", validate="one_to_one",
+        indicator="_feature_merge",
+    )
+    if result["_feature_merge"].ne("both").any():
         raise ValueError("at least one observed landmark has no matching feature row")
+    result = result.drop(columns="_feature_merge")
     result["outcome"] = result["outcome"].astype("int8")
     return result.sort_values(["subject_id", "stay_id", "landmark_time"]).reset_index(drop=True)
 

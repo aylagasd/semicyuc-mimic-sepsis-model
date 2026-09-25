@@ -11,6 +11,7 @@ from mimic_sepsis.evaluation import (
     percentile_intervals,
     threshold_metrics,
 )
+from mimic_sepsis.modeling import binary_metrics
 
 
 def _table():
@@ -18,6 +19,26 @@ def _table():
         "subject_id": np.repeat(np.arange(10), 2),
         "outcome": np.tile([0, 1], 10),
     })
+
+
+def _legacy_bootstrap_estimates(table, probability, *, replicates, seed):
+    """Reference implementation that physically duplicates sampled rows."""
+    codes, subjects = pd.factorize(table["subject_id"], sort=False)
+    positions = {
+        code: np.flatnonzero(codes == code) for code in range(len(subjects))
+    }
+    rng = np.random.default_rng(seed)
+    outcome = table["outcome"].to_numpy(int)
+    rows = []
+    for replicate in range(1, replicates + 1):
+        sampled = rng.choice(len(subjects), size=len(subjects), replace=True)
+        index = np.concatenate([positions[code] for code in sampled])
+        rows.append({
+            "replicate": replicate,
+            **binary_metrics(outcome[index], probability[index]),
+            **calibration_metrics(outcome[index], probability[index]),
+        })
+    return pd.DataFrame(rows)
 
 
 def test_identical_models_have_zero_paired_differences():
@@ -54,6 +75,43 @@ def test_absolute_bootstrap_contains_calibration_and_is_reproducible():
     )
     pd.testing.assert_frame_equal(first, second)
     assert {"calibration_intercept", "calibration_slope", "auroc"} <= set(first)
+
+
+def test_frequency_weighted_calibration_equals_physical_row_duplication():
+    outcome = np.array([0, 1, 0, 1, 1, 0])
+    probability = np.array([0.1, 0.8, 0.3, 0.7, 0.6, 0.2])
+    frequency = np.array([0, 3, 2, 1, 4, 2])
+    weighted = calibration_metrics(
+        outcome, probability, sample_weight=frequency
+    )
+    repeated = calibration_metrics(
+        np.repeat(outcome, frequency), np.repeat(probability, frequency)
+    )
+    for metric in weighted:
+        assert weighted[metric] == pytest.approx(
+            repeated[metric], rel=1e-10, abs=1e-10, nan_ok=True
+        )
+
+
+def test_vectorized_bootstrap_equals_physical_patient_resampling():
+    table = pd.DataFrame({
+        "subject_id": np.repeat([101, 202, 303, 404, 505, 606], [1, 2, 3, 1, 4, 2]),
+        "outcome": [0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0],
+    })
+    probability = np.array([
+        0.1, 0.2, 0.8, 0.3, 0.7, 0.7, 0.4,
+        0.9, 0.2, 0.6, 0.8, 0.2, 0.1,
+    ])
+    expected = _legacy_bootstrap_estimates(
+        table, probability, replicates=30, seed=17
+    )
+    actual = patient_cluster_bootstrap_estimates(
+        table, probability, replicates=30, seed=17
+    )
+    pd.testing.assert_frame_equal(
+        actual, expected[actual.columns], check_exact=False,
+        rtol=1e-10, atol=1e-10,
+    )
 
 
 def test_percentile_intervals_count_only_finite_estimates():
