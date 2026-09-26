@@ -187,6 +187,12 @@ Los datos y derivados permanecen fuera de Git. Consulte
 [`docs/full_deployment_guide.md`](docs/full_deployment_guide.md) antes de usar
 el servidor de cálculo.
 
+La evidencia agregada para revisar las definiciones provisionales del fenotipo
+se genera en el entorno protegido con `scripts/audit_phenotype_freeze.py`. El
+contrato y sus límites se explican en
+[`docs/phenotype_freeze_evidence.md`](docs/phenotype_freeze_evidence.md); el
+informe no congela decisiones automáticamente.
+
 Para validar el módulo sin una base MIMIC-IV real:
 
 ```bash

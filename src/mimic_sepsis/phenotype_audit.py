@@ -1,10 +1,21 @@
-"""Aggregate, disclosure-conscious audits for the Sepsis-3 phenotype."""
+"""Aggregate, disclosure-conscious audits for the Sepsis-3 phenotype.
+
+The functions in this module deliberately return denominated aggregate tables.
+They support protocol review; they never change a decision status or select a
+definition from observed results.
+"""
 
 from __future__ import annotations
 
 import pandas as pd
 
 from .sepsis_labels import first_sepsis_episode_per_stay
+
+
+def _require(frame: pd.DataFrame, columns: set[str], name: str) -> None:
+    missing = sorted(columns - set(frame.columns))
+    if missing:
+        raise ValueError(f"{name} is missing columns: {', '.join(missing)}")
 
 
 def pair_multiplicity(pairs: pd.DataFrame) -> pd.DataFrame:
@@ -20,6 +31,22 @@ def pair_multiplicity(pairs: pd.DataFrame) -> pd.DataFrame:
     )
     result = bands.value_counts(sort=False).rename("admissions").reset_index()
     result.columns = ["pairs_per_admission", "admissions"]
+    return result
+
+
+def infection_timing_summary(pairs: pd.DataFrame) -> pd.DataFrame:
+    """Summarize the ordering of antimicrobial and culture evidence."""
+    _require(pairs, {"hadm_id", "pair_direction"}, "pairs")
+    order = ["antibiotic_first", "culture_first", "simultaneous"]
+    counts = pairs["pair_direction"].astype("string").value_counts()
+    unknown = int((~pairs["pair_direction"].astype("string").isin(order)).sum())
+    rows = [(name, int(counts.get(name, 0))) for name in order]
+    rows.append(("unknown", unknown))
+    result = pd.DataFrame(rows, columns=["pair_direction", "pairs"])
+    denominator = len(pairs)
+    result["percent_of_pairs"] = (
+        100 * result["pairs"] / denominator if denominator else 0.0
+    )
     return result
 
 
@@ -59,7 +86,15 @@ def phenotype_summary(
 
 def coverage_summary(episodes: pd.DataFrame) -> pd.DataFrame:
     """Summarize mutually exclusive episode evaluability categories."""
+    _require(episodes, {"acute_window_covered", "exclusion_reason"}, "episodes")
     reason = episodes["exclusion_reason"]
+    allowed_reasons = {"no_acute_sofa_hours", "no_overlapping_icu_stay"}
+    unexpected = sorted(set(reason.dropna().astype(str)) - allowed_reasons)
+    if unexpected:
+        raise ValueError(
+            "episodes contains unexpected exclusion reasons: "
+            + ", ".join(unexpected)
+        )
     category = pd.Series("partial_acute_window", index=episodes.index, dtype="string")
     category.loc[episodes["acute_window_covered"] & reason.isna()] = "full_acute_window"
     category.loc[reason.eq("no_acute_sofa_hours")] = "no_acute_sofa_hours"
@@ -72,3 +107,149 @@ def coverage_summary(episodes: pd.DataFrame) -> pd.DataFrame:
     result.columns = ["coverage", "episodes"]
     result["percent"] = (100 * result["episodes"] / len(episodes)).round(1) if len(episodes) else 0.0
     return result
+
+
+def coverage_sensitivity_summary(episodes: pd.DataFrame) -> pd.DataFrame:
+    """Compare predeclared D011 eligibility sensitivities without choosing one.
+
+    Counts of Sepsis-3 stays are recalculated after applying each eligibility
+    rule: a stay is positive if it retains at least one qualifying pair. This
+    table is descriptive evidence for protocol review, not an automatic
+    optimization criterion.
+    """
+    _require(
+        episodes,
+        {
+            "stay_id", "sepsis3", "exclusion_reason",
+            "baseline_assumed_zero", "acute_window_covered",
+        },
+        "episodes",
+    )
+    evaluable = episodes["exclusion_reason"].isna()
+    rules = [
+        ("primary_no_coverage_exclusion", evaluable),
+        ("baseline_observed", evaluable & ~episodes["baseline_assumed_zero"]),
+        ("full_acute_window", evaluable & episodes["acute_window_covered"]),
+        (
+            "baseline_observed_and_full_acute_window",
+            evaluable
+            & ~episodes["baseline_assumed_zero"]
+            & episodes["acute_window_covered"],
+        ),
+    ]
+    rows = []
+    for name, mask in rules:
+        eligible = episodes.loc[mask]
+        positive = eligible.loc[eligible["sepsis3"]]
+        rows.append({
+            "sensitivity": name,
+            "eligible_pair_stay_rows": len(eligible),
+            "eligible_stays": eligible["stay_id"].nunique(),
+            "positive_pair_stay_rows": len(positive),
+            "sepsis3_stays": positive["stay_id"].nunique(),
+        })
+    return pd.DataFrame(rows)
+
+
+def sofa_completeness_summary(sepsis_stays: pd.DataFrame) -> pd.DataFrame:
+    """Describe missing SOFA components at each primary Sepsis-3 onset.
+
+    This is not the six-complete-components sensitivity itself. That analysis
+    must recompute the first qualifying crossing from hourly SOFA rather than
+    filter already selected onsets.
+    """
+    _require(
+        sepsis_stays,
+        {"stay_id", "sepsis3", "missing_components_at_t0"},
+        "sepsis_stays",
+    )
+    if sepsis_stays["stay_id"].duplicated().any():
+        raise ValueError("sepsis_stays must contain at most one row per stay_id")
+    positive = sepsis_stays.loc[sepsis_stays["sepsis3"]].copy()
+    missing = pd.to_numeric(positive["missing_components_at_t0"], errors="coerce")
+    category = pd.Series("unavailable", index=positive.index, dtype="string")
+    category.loc[missing.eq(0)] = "0_complete"
+    category.loc[missing.eq(1)] = "1_missing"
+    category.loc[missing.between(2, 3, inclusive="both")] = "2_to_3_missing"
+    category.loc[missing.between(4, 6, inclusive="both")] = "4_to_6_missing"
+    positive["component_missingness"] = category
+    order = [
+        "0_complete", "1_missing", "2_to_3_missing", "4_to_6_missing",
+        "unavailable",
+    ]
+    grouped = positive.groupby("component_missingness", observed=False)
+    rows = []
+    for label in order:
+        if label in grouped.groups:
+            group = grouped.get_group(label)
+        else:
+            group = positive.iloc[0:0]
+        rows.append({
+            "component_missingness": label,
+            "sepsis3_stays": len(group),
+        })
+    result = pd.DataFrame(rows)
+    denominator = len(positive)
+    result["percent_of_sepsis3_stays"] = (
+        100 * result["sepsis3_stays"] / denominator
+        if denominator else 0.0
+    )
+    return result
+
+
+def shock_proxy_summary(shock_stays: pd.DataFrame) -> pd.DataFrame:
+    """Audit shock-proxy classification and the fluid-verification limitation."""
+    _require(
+        shock_stays,
+        {"septic_shock", "adequate_fluids_verified"},
+        "shock_stays",
+    )
+    shock = shock_stays["septic_shock"].fillna(False).astype(bool)
+    fluids = shock_stays["adequate_fluids_verified"].fillna(False).astype(bool)
+    rows = [
+        ("sepsis3_stays_evaluated", len(shock_stays), "stays"),
+        ("shock_proxy_positive", int(shock.sum()), "stays"),
+        ("shock_proxy_negative", int((~shock).sum()), "stays"),
+        ("adequate_fluids_verified", int(fluids.sum()), "stays"),
+        ("adequate_fluids_not_verified", int((~fluids).sum()), "stays"),
+    ]
+    return pd.DataFrame(rows, columns=["metric", "count", "unit"])
+
+
+def decision_evidence_summary() -> pd.DataFrame:
+    """Declare what one primary phenotype run can and cannot resolve."""
+    return pd.DataFrame([
+        {
+            "decision_id": "D002",
+            "evidence_in_report": "not_comparative",
+            "remaining_requirement": (
+                "rebuild all prespecified cohort-policy variants and compare "
+                "aggregate flow"
+            ),
+        },
+        {
+            "decision_id": "D004",
+            "evidence_in_report": "descriptive_only",
+            "remaining_requirement": (
+                "clinical review of the versioned antimicrobial list and "
+                "prespecified infection sensitivities"
+            ),
+        },
+        {
+            "decision_id": "D010",
+            "evidence_in_report": "descriptive_only",
+            "remaining_requirement": (
+                "clinical acceptance of the EHR proxy and explicit absence of "
+                "verified adequate fluid resuscitation"
+            ),
+        },
+        {
+            "decision_id": "D011",
+            "evidence_in_report": "quantitative_coverage_sensitivities",
+            "remaining_requirement": (
+                "recompute the six-complete-components sensitivity from hourly "
+                "SOFA, then obtain clinical/statistical sign-off without "
+                "optimizing on demo or locked test data"
+            ),
+        },
+    ])

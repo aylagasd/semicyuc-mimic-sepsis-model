@@ -180,6 +180,8 @@ Los módulos principales son:
   memoria/hilos/spill y medición agregada por etapa sin datos clínicos.
 - `resource_validation.py`: puerta reproducible de finalización, RSS y swap
   contra el perfil de cómputo declarado.
+- `phenotype_evidence.py`: dossier agregado, verificable y no autorizante para
+  revisar las decisiones clínicas provisionales del fenotipo.
 
 DuckDB se usa como motor SQL local fuera de memoria para reducir CSV,
 seleccionar las filas de cada lote, normalizar y enlazar fuentes de features,
@@ -266,6 +268,17 @@ python scripts/build_demo_sofa_incremental.py --stage all --resume
 Cada Parquet tiene un manifiesto JSON con checksum SHA-256, esquema, número de
 filas, versión de datos, versión de código y hash de configuración. Un archivo
 corrupto o incompatible no se reutiliza silenciosamente.
+
+Antes de firmar D002/D004/D010/D011 puede generarse el informe agregado
+protegido descrito en
+[`phenotype_freeze_evidence.md`](phenotype_freeze_evidence.md):
+
+```bash
+python scripts/audit_phenotype_freeze.py data/derived/sofa/<run_id>
+```
+
+El informe ayuda a revisar las opciones pero no cambia por sí mismo el estado
+del protocolo.
 
 ### 8.3 Jupyter
 

@@ -1,6 +1,15 @@
 import pandas as pd
+import pytest
 
-from mimic_sepsis.phenotype_audit import coverage_summary, pair_multiplicity
+from mimic_sepsis.phenotype_audit import (
+    coverage_sensitivity_summary,
+    coverage_summary,
+    decision_evidence_summary,
+    infection_timing_summary,
+    pair_multiplicity,
+    shock_proxy_summary,
+    sofa_completeness_summary,
+)
 
 
 def test_pair_multiplicity_uses_prespecified_bands():
@@ -20,3 +29,88 @@ def test_coverage_categories_are_mutually_exclusive():
     result = coverage_summary(episodes)
     assert result["episodes"].sum() == 4
     assert result["episodes"].tolist() == [1, 1, 1, 1]
+
+
+def test_coverage_rejects_unknown_exclusion_reason():
+    with pytest.raises(ValueError, match="unexpected exclusion"):
+        coverage_summary(pd.DataFrame({
+            "acute_window_covered": [False],
+            "exclusion_reason": ["new_unreviewed_reason"],
+        }))
+
+
+def test_coverage_sensitivities_preserve_predeclared_order_and_denominators():
+    episodes = pd.DataFrame({
+        "stay_id": [1, 1, 2, 3, pd.NA],
+        "sepsis3": [True, True, True, False, False],
+        "exclusion_reason": [pd.NA, pd.NA, pd.NA, pd.NA, "no_overlapping_icu_stay"],
+        "baseline_assumed_zero": [False, False, True, False, False],
+        "acute_window_covered": [False, True, True, True, False],
+    })
+    result = coverage_sensitivity_summary(episodes).set_index("sensitivity")
+    assert result.index.tolist() == [
+        "primary_no_coverage_exclusion",
+        "baseline_observed",
+        "full_acute_window",
+        "baseline_observed_and_full_acute_window",
+    ]
+    assert result.loc["primary_no_coverage_exclusion"].to_dict() == {
+        "eligible_pair_stay_rows": 4,
+        "eligible_stays": 3,
+        "positive_pair_stay_rows": 3,
+        "sepsis3_stays": 2,
+    }
+    assert result.loc["baseline_observed_and_full_acute_window", "sepsis3_stays"] == 1
+
+
+def test_sofa_completeness_uses_one_primary_row_per_sepsis_stay():
+    stays = pd.DataFrame({
+        "stay_id": [1, 2, 3, 4, 5, 6],
+        "sepsis3": [True, True, True, True, True, False],
+        "missing_components_at_t0": [0, 1, 2, 4, pd.NA, 0],
+    })
+    result = sofa_completeness_summary(stays).set_index("component_missingness")
+    assert result["sepsis3_stays"].to_dict() == {
+        "0_complete": 1,
+        "1_missing": 1,
+        "2_to_3_missing": 1,
+        "4_to_6_missing": 1,
+        "unavailable": 1,
+    }
+    assert result["sepsis3_stays"].sum() == 5
+
+
+def test_sofa_completeness_rejects_duplicate_primary_stays():
+    with pytest.raises(ValueError, match="at most one row"):
+        sofa_completeness_summary(pd.DataFrame({
+            "stay_id": [1, 1],
+            "sepsis3": [True, True],
+            "missing_components_at_t0": [0, 1],
+        }))
+
+
+def test_infection_and_shock_summaries_are_aggregate_and_denominated():
+    timing = infection_timing_summary(pd.DataFrame({
+        "hadm_id": [1, 2, 3],
+        "pair_direction": ["antibiotic_first", "culture_first", "unexpected"],
+    }))
+    assert timing["pairs"].sum() == 3
+    assert timing.set_index("pair_direction").loc["unknown", "pairs"] == 1
+    shock = shock_proxy_summary(pd.DataFrame({
+        "septic_shock": [True, False, False],
+        "adequate_fluids_verified": [False, False, False],
+    })).set_index("metric")
+    assert shock.loc["shock_proxy_positive", "count"] == 1
+    assert shock.loc["adequate_fluids_not_verified", "count"] == 3
+
+
+def test_decision_evidence_never_claims_automatic_freeze():
+    result = decision_evidence_summary().set_index("decision_id")
+    assert set(result.index) == {"D002", "D004", "D010", "D011"}
+    assert result.loc["D002", "evidence_in_report"] == "not_comparative"
+    assert result.loc["D011", "evidence_in_report"] == "quantitative_coverage_sensitivities"
+
+
+def test_audit_rejects_missing_required_columns():
+    with pytest.raises(ValueError, match="pair_direction"):
+        infection_timing_summary(pd.DataFrame({"hadm_id": [1]}))
