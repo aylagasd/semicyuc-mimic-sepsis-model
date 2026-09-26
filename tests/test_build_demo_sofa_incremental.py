@@ -175,7 +175,9 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "classify_prescriptions", lambda frame, rules: frame)
     monkeypatch.setattr(cli, "confirm_administrations", lambda frame, emar: confirmed)
     monkeypatch.setattr(cli, "pair_antibiotics_and_cultures", lambda a, c: pairs)
-    monkeypatch.setattr(cli, "build_sepsis_episodes", lambda p, s, h: episodes)
+    monkeypatch.setattr(
+        cli, "build_sepsis_episodes", lambda p, s, h, **kwargs: episodes
+    )
     monkeypatch.setattr(cli, "first_sepsis_episode_per_stay", lambda e: e)
     monkeypatch.setattr(cli, "read_demo_tables", lambda data_dir, names: {
         "labevents": pd.DataFrame(), "inputevents": pd.DataFrame(),
@@ -192,6 +194,7 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
     store = cli.ArtifactStore(run_root / "40_labels")
     for name in (
         "suspected_infection_pairs", "sepsis_episodes", "sepsis_stays",
+        "sepsis_episodes_complete_sofa", "sepsis_stays_complete_sofa",
         "septic_shock_stays",
     ):
         assert store.validate(name, expected_config=config).rows == 1

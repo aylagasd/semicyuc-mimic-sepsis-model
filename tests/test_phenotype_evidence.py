@@ -97,6 +97,38 @@ def test_evidence_is_aggregate_content_and_does_not_freeze_status():
         row["decision_id"]: row for row in content["tables"]["decision_evidence"]
     }
     assert decisions["D011"]["current_status"] == "pending"
+    sensitivity = content["tables"]["complete_sofa_sensitivities"]
+    assert sensitivity[0]["available"] is False
+
+
+def test_evidence_uses_independently_recomputed_complete_sofa_artifacts():
+    source = _source()
+    source = ValidatedPhenotypeSource(
+        layout=source.layout,
+        data_version=source.data_version,
+        config_sha256=source.config_sha256,
+        artifact_sha256={
+            **source.artifact_sha256,
+            "sepsis_episodes_complete_sofa": "9" * 64,
+            "sepsis_stays_complete_sofa": "8" * 64,
+        },
+        tables={
+            **source.tables,
+            "sepsis_episodes_complete_sofa": source.tables[
+                "sepsis_episodes"
+            ].copy(),
+            "sepsis_stays_complete_sofa": source.tables["sepsis_stays"].copy(),
+        },
+    )
+    content = build_phenotype_evidence(source, protocol_status=STATUSES)
+    sensitivity = content["tables"]["complete_sofa_sensitivities"]
+    assert sensitivity[0]["sensitivity"] == "complete_sofa"
+    assert sensitivity[0]["available"] is True
+    d011 = next(
+        row for row in content["tables"]["decision_evidence"]
+        if row["decision_id"] == "D011"
+    )
+    assert "complete_sofa" in d011["evidence_in_report"]
 
 
 def test_evidence_round_trip_is_content_bound_and_private(tmp_path):
@@ -141,3 +173,19 @@ def test_evidence_requires_every_governed_decision_status():
                 key: value for key, value in STATUSES.items() if key != "D011"
             },
         )
+
+
+def test_evidence_rejects_inconsistent_stay_selection():
+    source = _source()
+    broken = ValidatedPhenotypeSource(
+        layout=source.layout,
+        data_version=source.data_version,
+        config_sha256=source.config_sha256,
+        artifact_sha256=source.artifact_sha256,
+        tables={
+            **source.tables,
+            "sepsis_stays": source.tables["sepsis_stays"].iloc[:1].copy(),
+        },
+    )
+    with pytest.raises(ArtifactValidationError, match="inconsistent"):
+        build_phenotype_evidence(broken, protocol_status=STATUSES)

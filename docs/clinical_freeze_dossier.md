@@ -51,8 +51,8 @@ El comando no modifica estados ni sustituye ninguna firma.
 - confirmar que `t0` es primer cruce y no máximo retrospectivo;
 - aceptar explícitamente que el proxy de shock no verifica resucitación adecuada;
 - fijar qué análisis de cobertura será exclusión y cuál solo estratificación.
-- no tratar el filtrado de `t0` incompletos como sensibilidad de seis
-  componentes: esta requiere recalcular el primer cruce desde SOFA horario.
+- revisar la sensibilidad versionada que recalcula baseline y primer cruce con
+  `sofa_complete`; no sustituirla por un filtrado de `t0` primarios incompletos.
 
 ### Predicción y operación
 

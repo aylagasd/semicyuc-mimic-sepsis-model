@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 from mimic_sepsis.phenotype_audit import (
+    complete_sofa_sensitivity_summary,
     coverage_sensitivity_summary,
     coverage_summary,
     decision_evidence_summary,
@@ -61,6 +62,20 @@ def test_coverage_sensitivities_preserve_predeclared_order_and_denominators():
         "sepsis3_stays": 2,
     }
     assert result.loc["baseline_observed_and_full_acute_window", "sepsis3_stays"] == 1
+
+
+def test_complete_sofa_sensitivity_is_explicitly_named_and_available():
+    episodes = pd.DataFrame({
+        "stay_id": [1, 2],
+        "sepsis3": [True, False],
+        "exclusion_reason": [pd.NA, pd.NA],
+        "baseline_assumed_zero": [False, False],
+        "acute_window_covered": [True, True],
+    })
+    result = complete_sofa_sensitivity_summary(episodes)
+    assert result["available"].all()
+    assert result["sensitivity"].iloc[0] == "complete_sofa"
+    assert result["sepsis3_stays"].iloc[0] == 1
 
 
 def test_sofa_completeness_uses_one_primary_row_per_sepsis_stay():

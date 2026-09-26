@@ -18,7 +18,7 @@ from typing import Any, Mapping
 import pandas as pd
 
 from .artifacts import ArtifactStore, ArtifactValidationError
-from .chunked_labels import LABEL_ARTIFACTS
+from .chunked_labels import COMPLETE_SOFA_ARTIFACTS, PRIMARY_LABEL_ARTIFACTS
 from .chunked_sofa import (
     partitioned_dataset_sha256,
     read_partitioned_dataset,
@@ -27,13 +27,16 @@ from .chunked_sofa import (
 from .phenotype_audit import (
     coverage_sensitivity_summary,
     coverage_summary,
+    complete_sofa_sensitivity_summary,
     decision_evidence_summary,
     infection_timing_summary,
     pair_multiplicity,
     phenotype_summary,
     shock_proxy_summary,
     sofa_completeness_summary,
+    unavailable_complete_sofa_sensitivity,
 )
+from .sepsis_labels import first_sepsis_episode_per_stay
 
 
 REPORT_TABLES = (
@@ -42,6 +45,7 @@ REPORT_TABLES = (
     "pair_multiplicity",
     "coverage",
     "coverage_sensitivities",
+    "complete_sofa_sensitivities",
     "sofa_completeness_at_t0",
     "shock_proxy",
     "decision_evidence",
@@ -81,7 +85,18 @@ def load_validated_phenotype_source(path: str | Path) -> ValidatedPhenotypeSourc
     demo = _demo_label_directory(root)
     if demo is not None:
         store = ArtifactStore(demo)
-        manifests = {name: store.validate(name) for name in LABEL_ARTIFACTS}
+        optional_present = [
+            (demo / f"{name}.manifest.json").is_file()
+            for name in COMPLETE_SOFA_ARTIFACTS
+        ]
+        if any(optional_present) and not all(optional_present):
+            raise ArtifactValidationError(
+                "Complete-SOFA sensitivity artifacts are incomplete"
+            )
+        names = PRIMARY_LABEL_ARTIFACTS + (
+            COMPLETE_SOFA_ARTIFACTS if all(optional_present) else ()
+        )
+        manifests = {name: store.validate(name) for name in names}
         data_version = _same(
             [item.data_version for item in manifests.values()], "data_version"
         )
@@ -90,7 +105,7 @@ def load_validated_phenotype_source(path: str | Path) -> ValidatedPhenotypeSourc
         )
         tables = {
             name: store.read_dataframe(name, validate=False)
-            for name in LABEL_ARTIFACTS
+            for name in names
         }
         return ValidatedPhenotypeSource(
             layout="demo_artifact_store",
@@ -100,10 +115,24 @@ def load_validated_phenotype_source(path: str | Path) -> ValidatedPhenotypeSourc
             tables=tables,
         )
 
-    if all((root / name / f"{name}.dataset.json").is_file() for name in LABEL_ARTIFACTS):
+    if all(
+        (root / name / f"{name}.dataset.json").is_file()
+        for name in PRIMARY_LABEL_ARTIFACTS
+    ):
+        optional_present = [
+            (root / name / f"{name}.dataset.json").is_file()
+            for name in COMPLETE_SOFA_ARTIFACTS
+        ]
+        if any(optional_present) and not all(optional_present):
+            raise ArtifactValidationError(
+                "Complete-SOFA sensitivity artifacts are incomplete"
+            )
+        names = PRIMARY_LABEL_ARTIFACTS + (
+            COMPLETE_SOFA_ARTIFACTS if all(optional_present) else ()
+        )
         manifests = {
             name: validate_partitioned_dataset(root / name, name)
-            for name in LABEL_ARTIFACTS
+            for name in names
         }
         data_version = _same(
             [item.data_version for item in manifests.values()], "data_version"
@@ -115,7 +144,7 @@ def load_validated_phenotype_source(path: str | Path) -> ValidatedPhenotypeSourc
             name: read_partitioned_dataset(
                 root / name, name, validated_manifest=manifests[name]
             )
-            for name in LABEL_ARTIFACTS
+            for name in names
         }
         return ValidatedPhenotypeSource(
             layout="partitioned_label_run",
@@ -144,17 +173,61 @@ def _records(frame: pd.DataFrame) -> list[dict[str, Any]]:
     return clean.to_dict(orient="records")
 
 
+def _validate_stay_selection(
+    episodes: pd.DataFrame, stays: pd.DataFrame, name: str
+) -> None:
+    """Verify that a stay artifact is the deterministic first positive episode."""
+    expected = first_sepsis_episode_per_stay(episodes)
+    keys = ["stay_id", "t0", "antibiotic_id", "culture_id"]
+    if stays["stay_id"].duplicated().any() or len(stays) != len(expected):
+        raise ArtifactValidationError(f"{name} is inconsistent with its episodes")
+    left = stays[keys].sort_values(keys, kind="stable").reset_index(drop=True)
+    right = expected[keys].sort_values(keys, kind="stable").reset_index(drop=True)
+    try:
+        pd.testing.assert_frame_equal(left, right, check_dtype=False)
+    except AssertionError:
+        raise ArtifactValidationError(f"{name} is inconsistent with its episodes")
+
+
+def _validate_label_relationships(source: ValidatedPhenotypeSource) -> None:
+    episodes = source.tables["sepsis_episodes"]
+    stays = source.tables["sepsis_stays"]
+    shock = source.tables["septic_shock_stays"]
+    _validate_stay_selection(episodes, stays, "sepsis_stays")
+    if shock["stay_id"].duplicated().any() or set(shock["stay_id"]) != set(
+        stays["stay_id"]
+    ):
+        raise ArtifactValidationError(
+            "septic_shock_stays is inconsistent with sepsis_stays"
+        )
+    complete_episodes = source.tables.get("sepsis_episodes_complete_sofa")
+    complete_stays = source.tables.get("sepsis_stays_complete_sofa")
+    if (complete_episodes is None) != (complete_stays is None):
+        raise ArtifactValidationError(
+            "Complete-SOFA sensitivity artifacts are incomplete"
+        )
+    if complete_episodes is not None and complete_stays is not None:
+        _validate_stay_selection(
+            complete_episodes, complete_stays, "sepsis_stays_complete_sofa"
+        )
+
+
 def build_phenotype_evidence(
     source: ValidatedPhenotypeSource,
     *,
     protocol_status: Mapping[str, str],
 ) -> dict[str, Any]:
     """Return the stable, timestamp-free content of a freeze-review report."""
+    _validate_label_relationships(source)
     pairs = source.tables["suspected_infection_pairs"]
     episodes = source.tables["sepsis_episodes"]
     sepsis_stays = source.tables["sepsis_stays"]
     shock_stays = source.tables["septic_shock_stays"]
-    decisions = decision_evidence_summary().copy()
+    complete_episodes = source.tables.get("sepsis_episodes_complete_sofa")
+    complete_available = complete_episodes is not None
+    decisions = decision_evidence_summary(
+        complete_sofa_available=complete_available
+    ).copy()
     decisions["current_status"] = decisions["decision_id"].map(protocol_status)
     if decisions["current_status"].isna().any():
         missing = decisions.loc[
@@ -170,6 +243,11 @@ def build_phenotype_evidence(
         "pair_multiplicity": pair_multiplicity(pairs),
         "coverage": coverage_summary(episodes),
         "coverage_sensitivities": coverage_sensitivity_summary(episodes),
+        "complete_sofa_sensitivities": (
+            complete_sofa_sensitivity_summary(complete_episodes)
+            if complete_episodes is not None
+            else unavailable_complete_sofa_sensitivity()
+        ),
         "sofa_completeness_at_t0": sofa_completeness_summary(sepsis_stays),
         "shock_proxy": shock_proxy_summary(shock_stays),
         "decision_evidence": decisions,
@@ -177,7 +255,7 @@ def build_phenotype_evidence(
     if tuple(frames) != REPORT_TABLES:
         raise RuntimeError("Internal phenotype report table order changed")
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "purpose": "protocol_freeze_review_only",
         "distribution_class": "protected_aggregate_unsuppressed_counts",
         "clinical_status_mutated": False,
@@ -192,8 +270,9 @@ def build_phenotype_evidence(
             "D004": "first qualifying EMAR administration plus blood culture",
             "D010": "EHR shock proxy; adequate fluids are not inferred",
             "D011": (
-                "coverage sensitivities plus descriptive primary-t0 missingness; "
-                "six-component sensitivity still requires hourly recomputation"
+                "coverage sensitivities, descriptive primary-t0 missingness and "
+                "an independently recomputed sofa_complete sensitivity when its "
+                "versioned artifacts are present"
             ),
         },
         "tables": {name: _records(frame) for name, frame in frames.items()},

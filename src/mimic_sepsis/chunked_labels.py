@@ -22,16 +22,30 @@ from .chunked_sofa import (
 from .duckdb_runtime import configure_duckdb, validate_duckdb_runtime
 from .full_extract import _sql_path
 from .infection import pair_antibiotics_and_cultures
-from .sepsis_labels import build_sepsis_episodes, first_sepsis_episode_per_stay
+from .sepsis_labels import (
+    build_sepsis_episodes, first_sepsis_episode_per_stay,
+    sepsis_episode_parameters,
+)
 from .septic_shock import (
     build_septic_shock_labels, normalize_lactate, normalize_vasopressor_intervals,
 )
 
 
+PRIMARY_LABEL_ARTIFACTS = (
+    "suspected_infection_pairs",
+    "sepsis_episodes",
+    "sepsis_stays",
+    "septic_shock_stays",
+)
+COMPLETE_SOFA_ARTIFACTS = (
+    "sepsis_episodes_complete_sofa",
+    "sepsis_stays_complete_sofa",
+)
 LABEL_ARTIFACTS = (
     "suspected_infection_pairs",
     "sepsis_episodes",
     "sepsis_stays",
+    *COMPLETE_SOFA_ARTIFACTS,
     "septic_shock_stays",
 )
 
@@ -46,6 +60,7 @@ class ChunkedLabelBuilder:
         output_root: Path,
         *,
         rules_path: Path,
+        sepsis_config_path: Path,
         shock_config_path: Path,
         code_version: str = "unknown",
         duckdb_memory_limit: str = "8GB",
@@ -56,6 +71,7 @@ class ChunkedLabelBuilder:
         self.sofa_run = Path(sofa_run)
         self.output_root = Path(output_root)
         self.rules_path = Path(rules_path)
+        self.sepsis_config_path = Path(sepsis_config_path)
         self.shock_config_path = Path(shock_config_path)
         self.code_version = str(code_version)
         self.duckdb_memory_limit, self.duckdb_threads = validate_duckdb_runtime(
@@ -70,7 +86,7 @@ class ChunkedLabelBuilder:
     ) -> dict[str, Any]:
         return {
             "backend": "partitioned-pandas-labels",
-            "chunked_label_schema_version": 3,
+            "chunked_label_schema_version": 4,
             "code_version": self.code_version,
             "duckdb_memory_limit": self.duckdb_memory_limit,
             "duckdb_threads": self.duckdb_threads,
@@ -83,6 +99,9 @@ class ChunkedLabelBuilder:
             "antimicrobial_rules_sha256": hashlib.sha256(
                 self.rules_path.read_bytes()
             ).hexdigest(),
+            "sepsis3": json.loads(
+                self.sepsis_config_path.read_text(encoding="utf-8")
+            ),
             "shock_config": json.loads(
                 self.shock_config_path.read_text(encoding="utf-8")
             ),
@@ -210,8 +229,21 @@ class ChunkedLabelBuilder:
                 pairs = pair_antibiotics_and_cultures(antibiotics, cultures)
                 for column in ("antibiotic_time", "culture_time", "t_si"):
                     pairs[column] = pairs[column].astype("datetime64[ns]")
-                episodes = build_sepsis_episodes(pairs, cohort, sofa)
+                sepsis_config = config["sepsis3"]
+                episodes = build_sepsis_episodes(
+                    pairs, cohort, sofa,
+                    **sepsis_episode_parameters(sepsis_config),
+                )
                 sepsis_stays = first_sepsis_episode_per_stay(episodes)
+                complete_episodes = build_sepsis_episodes(
+                    pairs, cohort, sofa,
+                    **sepsis_episode_parameters(
+                        sepsis_config, sensitivity="complete_components"
+                    ),
+                )
+                complete_stays = first_sepsis_episode_per_stay(
+                    complete_episodes
+                )
                 lactates = normalize_lactate(self._read_for_batch(
                     connection, "labevents_reduced", "USING(subject_id,hadm_id)"
                 ))
@@ -228,7 +260,10 @@ class ChunkedLabelBuilder:
                 )
                 frames = dict(zip(
                     LABEL_ARTIFACTS,
-                    (pairs, episodes, sepsis_stays, shock),
+                    (
+                        pairs, episodes, sepsis_stays, complete_episodes,
+                        complete_stays, shock,
+                    ),
                     strict=True,
                 ))
                 for artifact, frame in frames.items():

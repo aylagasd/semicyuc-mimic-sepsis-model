@@ -151,6 +151,35 @@ def coverage_sensitivity_summary(episodes: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def complete_sofa_sensitivity_summary(episodes: pd.DataFrame) -> pd.DataFrame:
+    """Summarize episodes fully recomputed with ``sofa_complete``."""
+    result = coverage_sensitivity_summary(episodes).copy()
+    names = {
+        "primary_no_coverage_exclusion": "complete_sofa",
+        "baseline_observed": "complete_sofa_and_observed_baseline",
+        "full_acute_window": "complete_sofa_and_full_acute_window",
+        "baseline_observed_and_full_acute_window": (
+            "complete_sofa_observed_baseline_and_full_acute_window"
+        ),
+    }
+    result["sensitivity"] = result["sensitivity"].map(names)
+    result.insert(1, "available", True)
+    return result
+
+
+def unavailable_complete_sofa_sensitivity() -> pd.DataFrame:
+    """Return an explicit, typed marker for legacy runs lacking the artifact."""
+    result = pd.DataFrame({
+        "sensitivity": ["complete_sofa_artifact_missing"],
+        "available": [False],
+        "eligible_pair_stay_rows": pd.array([pd.NA], dtype="Int64"),
+        "eligible_stays": pd.array([pd.NA], dtype="Int64"),
+        "positive_pair_stay_rows": pd.array([pd.NA], dtype="Int64"),
+        "sepsis3_stays": pd.array([pd.NA], dtype="Int64"),
+    })
+    return result
+
+
 def sofa_completeness_summary(sepsis_stays: pd.DataFrame) -> pd.DataFrame:
     """Describe missing SOFA components at each primary Sepsis-3 onset.
 
@@ -216,7 +245,9 @@ def shock_proxy_summary(shock_stays: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["metric", "count", "unit"])
 
 
-def decision_evidence_summary() -> pd.DataFrame:
+def decision_evidence_summary(
+    *, complete_sofa_available: bool = False
+) -> pd.DataFrame:
     """Declare what one primary phenotype run can and cannot resolve."""
     return pd.DataFrame([
         {
@@ -245,10 +276,17 @@ def decision_evidence_summary() -> pd.DataFrame:
         },
         {
             "decision_id": "D011",
-            "evidence_in_report": "quantitative_coverage_sensitivities",
+            "evidence_in_report": (
+                "quantitative_coverage_and_complete_sofa_sensitivities"
+                if complete_sofa_available
+                else "quantitative_coverage_sensitivities"
+            ),
             "remaining_requirement": (
-                "recompute the six-complete-components sensitivity from hourly "
-                "SOFA, then obtain clinical/statistical sign-off without "
+                "clinical/statistical sign-off without optimizing on demo or "
+                "locked test data"
+                if complete_sofa_available
+                else "recompute the six-complete-components sensitivity from "
+                "hourly SOFA, then obtain clinical/statistical sign-off without "
                 "optimizing on demo or locked test data"
             ),
         },

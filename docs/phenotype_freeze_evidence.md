@@ -46,6 +46,7 @@ protocolo produce el mismo `report_sha256`, aunque cambie la hora de creación.
 | `pair_multiplicity` | ingresos con pares | Multiplicidad de candidatos por ingreso. |
 | `coverage` | filas par–estancia | Cobertura aguda completa, parcial o no evaluable. |
 | `coverage_sensitivities` | filas y estancias elegibles; estancias Sepsis-3 | Primario, baseline observado, ventana aguda completa y combinación. |
+| `complete_sofa_sensitivities` | filas y estancias recalculadas con `sofa_complete` | Caso completo solo y combinado con baseline observado/cobertura física. |
 | `sofa_completeness_at_t0` | primer episodio Sepsis-3 por estancia | Componentes ausentes en el `t0` primario. |
 | `shock_proxy` | estancias Sepsis-3 | Proxy positivo/negativo y verificación de fluidos. |
 | `decision_evidence` | decisiones D002/D004/D010/D011 | Estado actual y evidencia que todavía falta. |
@@ -85,12 +86,20 @@ Las sensibilidades de baseline observado y cobertura aguda se recalculan antes
 de contar estancias Sepsis-3. La distribución de componentes ausentes se
 describe sobre el `t0` primario, una fila por estancia.
 
-Esa distribución no es todavía la sensibilidad «seis componentes completos».
-Para implementarla correctamente hay que volver al SOFA horario, exigir la
-completitud en cada hora candidata y buscar de nuevo el primer cruce elegible.
-Eliminar después los `t0` incompletos podría perder un cruce completo posterior
-y cambiaría la pregunta. Esta reconstrucción debe añadirse antes de afirmar que
-la sensibilidad está ejecutada.
+La sensibilidad «seis componentes completos» se deriva de nuevo desde el SOFA
+horario: utiliza `sofa_complete` tanto para el mínimo basal como para cada hora
+aguda y vuelve a buscar el primer cruce elegible. No elimina después los `t0`
+incompletos, porque eso podría perder un cruce completo posterior y cambiaría la
+pregunta. Se materializa por separado como
+`sepsis_episodes_complete_sofa`/`sepsis_stays_complete_sofa`.
+
+Las ejecuciones antiguas que todavía no contienen ambos artefactos siguen
+siendo legibles, pero la tabla declara `available=false` y D011 conserva como
+requisito pendiente el recálculo. Si aparece solo uno de los dos artefactos, el
+informe falla: una sensibilidad parcial no es interpretable. En la combinación
+con «ventana aguda completa», cobertura significa que existe rejilla física en
+ambos extremos; no implica que los seis componentes estén observados en todas
+las horas intermedias.
 
 ## Procedimiento de revisión y firma
 

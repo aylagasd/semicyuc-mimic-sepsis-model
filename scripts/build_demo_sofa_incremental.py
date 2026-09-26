@@ -28,7 +28,10 @@ from mimic_sepsis.feature_sources import normalize_lab_feature_events, normalize
 from mimic_sepsis.features import build_numeric_feature_matrix
 from mimic_sepsis.infection import pair_antibiotics_and_cultures
 from mimic_sepsis.landmarks import build_multiple_horizons
-from mimic_sepsis.sepsis_labels import build_sepsis_episodes, first_sepsis_episode_per_stay
+from mimic_sepsis.sepsis_labels import (
+    build_sepsis_episodes, first_sepsis_episode_per_stay,
+    sepsis_episode_parameters,
+)
 from mimic_sepsis.septic_shock import (
     build_septic_shock_labels,
     normalize_lactate,
@@ -42,7 +45,7 @@ from mimic_sepsis.sofa_hourly import build_icustay_hourly_grid
 DATA_VERSION = "2.2"
 MIMIC_CODE_VERSION = "v2.4.0"
 MIMIC_CODE_COMMIT = "570ef01"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 RAW_TABLES = {
     "icustays": "icu/icustays.csv.gz",
     "chartevents": "icu/chartevents.csv.gz",
@@ -271,6 +274,7 @@ def build_label_stage(
     label_store = _store(run_root, "40_labels")
     names = (
         "suspected_infection_pairs", "sepsis_episodes", "sepsis_stays",
+        "sepsis_episodes_complete_sofa", "sepsis_stays_complete_sofa",
         "septic_shock_stays",
     )
     if all(_valid(label_store, name, config, resume=resume) for name in names):
@@ -314,8 +318,18 @@ def build_label_stage(
         .rename(columns={"micro_specimen_id": "culture_id"})
     )
     pairs = pair_antibiotics_and_cultures(antibiotics, cultures)
-    episodes = build_sepsis_episodes(pairs, stays, sofa)
+    sepsis_config = config["sepsis3"]
+    episodes = build_sepsis_episodes(
+        pairs, stays, sofa, **sepsis_episode_parameters(sepsis_config)
+    )
     sepsis_stays = first_sepsis_episode_per_stay(episodes)
+    complete_episodes = build_sepsis_episodes(
+        pairs, stays, sofa,
+        **sepsis_episode_parameters(
+            sepsis_config, sensitivity="complete_components"
+        ),
+    )
+    complete_stays = first_sepsis_episode_per_stay(complete_episodes)
     shock_sources = read_demo_tables(data_dir, ("labevents", "inputevents"))
     lactates = normalize_lactate(shock_sources["labevents"])
     vasopressors = normalize_vasopressor_intervals(shock_sources["inputevents"])
@@ -326,7 +340,10 @@ def build_label_stage(
         concurrency_hours=shock_config["concurrency_hours"],
         association_hours=shock_config["sepsis_association_hours_after"],
     )
-    frames = (pairs, episodes, sepsis_stays, shock_stays)
+    frames = (
+        pairs, episodes, sepsis_stays, complete_episodes, complete_stays,
+        shock_stays,
+    )
     for name, frame in zip(names, frames, strict=True):
         label_store.write_dataframe(
             name, frame, data_version=DATA_VERSION,

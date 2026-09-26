@@ -7,7 +7,9 @@ dysfunction have become observable.  Neither belongs in predictor features.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import timedelta
+from typing import Any
 
 import pandas as pd
 
@@ -22,6 +24,58 @@ EPISODE_COLUMNS = [
     "label_available_at", "baseline_hour_count", "acute_hour_count",
     "acute_window_covered", "exclusion_reason",
 ]
+
+
+def sepsis_episode_parameters(
+    config: Mapping[str, Any], *, sensitivity: str | None = None
+) -> dict[str, Any]:
+    """Validate versioned Sepsis-3 configuration and return build arguments."""
+    if config.get("schema_version") != 2:
+        raise ValueError("Unsupported Sepsis-3 configuration schema")
+    if config.get("phenotype") != "sepsis3_primary":
+        raise ValueError("Unexpected Sepsis-3 phenotype identifier")
+    if config.get("baseline_strategy") != (
+        "minimum_observed_hourly_total_else_zero_flagged"
+    ):
+        raise ValueError("Unsupported primary SOFA baseline strategy")
+    if config.get("window_boundaries") != {
+        "acute": "inclusive_both",
+        "baseline": "left_closed_right_open",
+    }:
+        raise ValueError("Unsupported Sepsis-3 window boundaries")
+    score_column = "sofa_total"
+    if sensitivity is not None:
+        if sensitivity != "complete_components":
+            raise ValueError("Unknown Sepsis-3 sensitivity")
+        try:
+            definition = config["sensitivities"][sensitivity]
+        except (KeyError, TypeError) as error:
+            raise ValueError("Missing complete-component sensitivity") from error
+        if definition.get("baseline_strategy") != (
+            "minimum_observed_hourly_complete_else_zero_flagged"
+        ) or definition.get("score_column") != "sofa_complete":
+            raise ValueError("Unsupported complete-component sensitivity")
+        score_column = "sofa_complete"
+    keys = (
+        "baseline_hours", "acute_hours_before", "acute_hours_after",
+        "delta_sofa_threshold",
+    )
+    try:
+        values = {key: config[key] for key in keys}
+    except KeyError as error:
+        raise ValueError("Malformed Sepsis-3 numeric parameters") from error
+    if any(
+        not isinstance(value, int) or isinstance(value, bool)
+        for value in values.values()
+    ):
+        raise ValueError("Sepsis-3 numeric parameters must be integers")
+    return {
+        "baseline_hours": values["baseline_hours"],
+        "acute_hours_before": values["acute_hours_before"],
+        "acute_hours_after": values["acute_hours_after"],
+        "delta_threshold": values["delta_sofa_threshold"],
+        "score_column": score_column,
+    }
 
 
 def _require(frame: pd.DataFrame, columns: set[str], name: str) -> None:
@@ -39,13 +93,19 @@ def build_sepsis_episodes(
     acute_hours_before: int = 24,
     acute_hours_after: int = 24,
     delta_threshold: int = 2,
+    score_column: str = "sofa_total",
 ) -> pd.DataFrame:
     """Create one audited Sepsis-3 result per infection-pair/stay candidate.
 
-    Baseline is the minimum observed hourly ``sofa_total`` in
+    Baseline is the minimum observed hourly score in
     ``[t_si-baseline_hours, t_si)``.  If no baseline hour exists it is assumed
-    to be zero and explicitly flagged.  Acute hours include both endpoints.
+    to be zero and explicitly flagged. Acute hours include both endpoints.
+    ``score_column='sofa_complete'`` is the predeclared complete-component
+    sensitivity and recomputes the entire crossing rather than filtering the
+    onset selected with ``sofa_total``.
     """
+    if score_column not in {"sofa_total", "sofa_complete"}:
+        raise ValueError("score_column must be 'sofa_total' or 'sofa_complete'")
     _require(
         pairs,
         set(PAIR_KEYS) | {"antibiotic_time", "culture_time", "t_si"},
@@ -58,7 +118,7 @@ def build_sepsis_episodes(
     )
     _require(
         sofa_hourly,
-        {"stay_id", "endtime", "sofa_total", "missing_components"},
+        {"stay_id", "endtime", score_column, "missing_components"},
         "sofa_hourly",
     )
     if min(baseline_hours, acute_hours_before, acute_hours_after) < 0:
@@ -108,18 +168,20 @@ def build_sepsis_episodes(
         baseline_start = row.t_si - timedelta(hours=baseline_hours)
         baseline = hours.loc[
             hours["endtime"].ge(baseline_start) & hours["endtime"].lt(row.t_si)
-        ].dropna(subset=["sofa_total"])
+        ].dropna(subset=[score_column])
         acute = hours.loc[
             hours["endtime"].ge(row.acute_start)
             & hours["endtime"].le(row.acute_end)
-        ].dropna(subset=["sofa_total"])
+        ].dropna(subset=[score_column])
 
         baseline_assumed = baseline.empty
         if baseline_assumed:
             baseline_sofa, baseline_time, baseline_missing = 0, pd.NaT, pd.NA
         else:
-            baseline_sofa = int(baseline["sofa_total"].min())
-            baseline_row = baseline.loc[baseline["sofa_total"].eq(baseline_sofa)].iloc[0]
+            baseline_sofa = int(baseline[score_column].min())
+            baseline_row = baseline.loc[
+                baseline[score_column].eq(baseline_sofa)
+            ].iloc[0]
             baseline_time = baseline_row["endtime"]
             baseline_missing = int(baseline_row["missing_components"])
 
@@ -128,15 +190,17 @@ def build_sepsis_episodes(
             sepsis3 = False
             exclusion_reason = "no_acute_sofa_hours"
         else:
-            peak_sofa = int(acute["sofa_total"].max())
-            peak_row = acute.loc[acute["sofa_total"].eq(peak_sofa)].iloc[0]
+            peak_sofa = int(acute[score_column].max())
+            peak_row = acute.loc[acute[score_column].eq(peak_sofa)].iloc[0]
             peak_time = peak_row["endtime"]
-            qualifying = acute.loc[(acute["sofa_total"] - baseline_sofa).ge(delta_threshold)]
+            qualifying = acute.loc[
+                (acute[score_column] - baseline_sofa).ge(delta_threshold)
+            ]
             sepsis3 = not qualifying.empty
             if sepsis3:
                 onset = qualifying.iloc[0]
                 t0 = onset["endtime"]
-                sofa_at_t0 = int(onset["sofa_total"])
+                sofa_at_t0 = int(onset[score_column])
                 delta_at_t0 = sofa_at_t0 - baseline_sofa
                 missing_at_t0 = int(onset["missing_components"])
             else:

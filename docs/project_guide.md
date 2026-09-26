@@ -100,6 +100,9 @@ Se conservan dos totales:
 
 También se guarda cuántos componentes faltan. Puntuar un ausente como cero es
 una convención de fenotipado, no evidencia de función orgánica normal.
+La sensibilidad de caso completo reconstruye baseline y primer cruce con
+`sofa_complete` y se guarda en artefactos distintos; no filtra retrospectivamente
+el `t0` primario.
 
 ### 4.3 Sepsis-3
 
@@ -206,7 +209,7 @@ manifiesto canónico es [`notebooks/README.md`](../notebooks/README.md).
 | 05 | Clasificación y confirmación EMAR de antimicrobianos. |
 | 06 | Disponibilidad de fuentes y umbrales SOFA. |
 | 07 | SOFA horario, Sepsis-3 y resultados agregados. |
-| 08 | Auditoría agregada inicial del fenotipo. |
+| 08 | Auditoría agregada del fenotipo y sensibilidad recalculada con `sofa_complete`. |
 | 09 | Landmarks, particiones, cobertura y características leakage-safe. |
 | 10 | Referencias de prevalencia y regresión clínica con validación agrupada. |
 | 11 | Comparación pareada e intervalos por bootstrap de pacientes completos. |

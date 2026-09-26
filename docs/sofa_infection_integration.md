@@ -77,8 +77,9 @@ aproximación Sepsis-3, pero registra `baseline_assumed_zero = true`. Se reporta
 por separado la sensibilidad que exige al menos una hora basal.
 
 Debe conservarse `baseline_missing_components` y el perfil de missingness de la
-hora de inicio. La sensibilidad de caso completo usa `sofa_complete`; no puede
-reemplazar silenciosamente la etiqueta primaria.
+hora de inicio. La sensibilidad de caso completo repite el mínimo basal, la
+ventana aguda y la búsqueda del primer cruce usando `sofa_complete`; no filtra
+el `t0` primario ni puede reemplazar silenciosamente esa etiqueta.
 
 Los límites exactos anteriores son deliberados:
 
