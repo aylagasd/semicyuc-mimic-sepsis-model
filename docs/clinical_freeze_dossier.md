@@ -26,6 +26,9 @@ La comparación específica de políticas de cohorte D002 se genera con
 El paquete estático para revisar todas las reglas de D004 se genera con
 `scripts/audit_antimicrobial_rules.py` y se describe en
 [`antimicrobial_rule_review.md`](antimicrobial_rule_review.md).
+El alcance ejecutable y los campos todavía pendientes de las sensibilidades
+D010 se fijan en
+[`septic_shock_sensitivity_contract.md`](septic_shock_sensitivity_contract.md).
 
 ## 2. Propuestas que requieren firma
 
