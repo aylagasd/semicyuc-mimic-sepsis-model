@@ -377,7 +377,7 @@ def build_phenotype_evidence(
     if tuple(frames) != REPORT_TABLES:
         raise RuntimeError("Internal phenotype report table order changed")
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "purpose": "protocol_freeze_review_only",
         "distribution_class": "protected_aggregate_unsuppressed_counts",
         "clinical_status_mutated": False,

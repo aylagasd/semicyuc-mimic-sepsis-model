@@ -163,7 +163,7 @@ def test_evidence_uses_recomputed_shock_concurrency_artifact():
     assert d010["evidence_in_report"] == "quantitative_concurrency_sensitivities"
 
 
-def test_evidence_uses_recomputed_prescription_start_artifacts():
+def test_evidence_uses_recomputed_infection_sensitivity_artifacts():
     source = _source()
     variant_pairs = source.tables["suspected_infection_pairs"].assign(
         sensitivity="prescription_start"
@@ -200,7 +200,7 @@ def test_evidence_uses_recomputed_prescription_start_artifacts():
         if row["decision_id"] == "D004"
     )
     assert d004["evidence_in_report"] == (
-        "quantitative_prescription_start_sensitivity"
+        "quantitative_recomputed_infection_sensitivities"
     )
 
 

@@ -395,14 +395,14 @@ def decision_evidence_summary(
         {
             "decision_id": "D004",
             "evidence_in_report": (
-                "quantitative_prescription_start_sensitivity"
+                "quantitative_recomputed_infection_sensitivities"
                 if infection_sensitivity_available
                 else "descriptive_only"
             ),
             "remaining_requirement": (
                 "clinical review of the versioned antimicrobial list and "
-                "decisions on expanded cultures, pairing windows and "
-                "perioperative exclusions"
+                "expanded culture scope, plus prespecification of pairing "
+                "windows and perioperative exclusions"
             ),
         },
         {

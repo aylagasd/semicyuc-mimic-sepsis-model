@@ -203,7 +203,7 @@ def test_decision_evidence_never_claims_automatic_freeze():
     ).set_index("decision_id")
     assert (
         with_infection.loc["D004", "evidence_in_report"]
-        == "quantitative_prescription_start_sensitivity"
+        == "quantitative_recomputed_infection_sensitivities"
     )
 
 
