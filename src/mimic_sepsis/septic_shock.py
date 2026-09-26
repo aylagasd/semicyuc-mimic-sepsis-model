@@ -103,23 +103,24 @@ def build_septic_shock_labels(
     vasopressors = vasopressors.copy()
     vasopressors["starttime"] = pd.to_datetime(vasopressors["starttime"])
     vasopressors["endtime"] = pd.to_datetime(vasopressors["endtime"])
-    lactate_groups = {
-        key: group
-        for key, group in lactates.groupby(["subject_id", "hadm_id"], sort=False)
-    }
-    vasopressor_groups = {
-        key: group for key, group in vasopressors.groupby("stay_id", sort=False)
-    }
+    lactate_indices = lactates.groupby(
+        ["subject_id", "hadm_id"], sort=False
+    ).indices
+    vasopressor_indices = vasopressors.groupby("stay_id", sort=False).indices
     rows = []
     for sepsis in sepsis_stays.itertuples(index=False):
         t0 = pd.to_datetime(sepsis.t0)
         lower = t0 - timedelta(hours=association_hours_before)
         upper = t0 + timedelta(hours=association_hours_after)
-        admission_labs = lactate_groups.get(
-            (sepsis.subject_id, sepsis.hadm_id), lactates.iloc[0:0]
+        lab_rows = lactate_indices.get((sepsis.subject_id, sepsis.hadm_id))
+        vaso_rows = vasopressor_indices.get(sepsis.stay_id)
+        admission_labs = (
+            lactates.iloc[lab_rows] if lab_rows is not None else lactates.iloc[0:0]
         )
-        stay_vasopressors = vasopressor_groups.get(
-            sepsis.stay_id, vasopressors.iloc[0:0]
+        stay_vasopressors = (
+            vasopressors.iloc[vaso_rows]
+            if vaso_rows is not None
+            else vasopressors.iloc[0:0]
         )
         labs = admission_labs.loc[
             admission_labs["lactate_mmol_l"].gt(lactate_threshold)
