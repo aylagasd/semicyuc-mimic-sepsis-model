@@ -8,13 +8,13 @@ import hashlib
 import json
 from pathlib import Path
 import re
-import subprocess
 from typing import Any
 
 import duckdb
 import pandas as pd
 
 from .artifacts import ArtifactStore, ArtifactValidationError
+from .code_identity import detect_code_version
 from .duckdb_runtime import configure_duckdb, validate_duckdb_runtime
 from .full_extract import ExtractManifest, _hash_file, _sql_path
 from .sofa_demo import build_demo_hourly_sofa
@@ -57,22 +57,6 @@ def _canonical_hash(value: Any) -> str:
         value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
-
-
-def detect_code_version(repo: Path) -> str:
-    """Return the current Git identity, including tracked dirty state."""
-    try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "--short=12", "HEAD"], cwd=repo,
-            check=True, capture_output=True, text=True,
-        ).stdout.strip()
-        dirty = subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=no"], cwd=repo,
-            check=True, capture_output=True, text=True,
-        ).stdout
-        return commit + ("-DIRTY" if dirty else "")
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
 
 
 def validate_extract(source_dir: Path) -> dict[str, ExtractManifest]:

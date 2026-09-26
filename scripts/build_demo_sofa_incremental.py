@@ -12,7 +12,6 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-import subprocess
 from typing import Iterable
 
 import pandas as pd
@@ -25,6 +24,7 @@ from mimic_sepsis.antimicrobials import (
 )
 from mimic_sepsis.artifacts import ArtifactStore, ArtifactValidationError
 from mimic_sepsis.cohort import StayPolicy, build_adult_icu_cohort
+from mimic_sepsis.code_identity import detect_code_version
 from mimic_sepsis.feature_sources import normalize_lab_feature_events, normalize_vital_events
 from mimic_sepsis.features import build_numeric_feature_matrix
 from mimic_sepsis.infection import (
@@ -127,33 +127,12 @@ def config_hash(config: dict) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def make_run_id(config: dict) -> str:
+def make_run_id(config: dict, *, code_version: str | None = None) -> str:
+    identity = {"config": config, "code_version": code_version or "unspecified"}
     return (
         f"demo-{config['data_release']}-{config['mimic_code_version']}-"
-        f"{config_hash(config)[:12]}"
+        f"{config_hash(identity)[:12]}"
     )
-
-
-def project_version(repo: Path) -> str:
-    """Return a useful code identity without failing outside a Git checkout."""
-    try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "--short=12", "HEAD"],
-            cwd=repo,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-        dirty = subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
-            cwd=repo,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
-        return commit + ("-DIRTY" if dirty else "")
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
 
 
 def _store(run_root: Path, directory: str) -> ArtifactStore:
@@ -529,9 +508,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     config = canonical_config(args.stay_policy)
-    run_id = make_run_id(config)
+    code_version = detect_code_version(Path(__file__).resolve().parents[1])
+    run_id = make_run_id(config, code_version=code_version)
     run_root = args.output_root / run_id
-    code_version = project_version(Path(__file__).resolve().parents[1])
     if args.stage in {"cohort", "all"}:
         build_cohort_stage(
             data_dir=args.data_dir, run_root=run_root, config=config,

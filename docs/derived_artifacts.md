@@ -56,7 +56,7 @@ Cada ejecución tendrá un `run_id` inmutable, generado a partir de la
 configuración efectiva y no de credenciales:
 
 ```text
-{backend}-{mimic_data_version}-{mimic_code_version}-{config_hash_12}
+{backend}-{mimic_data_version}-{mimic_code_version}-{execution_hash_12}
 ```
 
 Ejemplos:
@@ -77,8 +77,9 @@ institucional. Cambiar la raíz no cambia la identidad lógica del artefacto.
 Dentro de una ejecución no se sobrescriben artefactos terminados: una
 configuración o código distintos generan otro `run_id`.
 
-`config_hash` será SHA-256 del JSON canónico (UTF-8, claves ordenadas, sin
-espacios no significativos) que incluya como mínimo:
+`execution_hash` será SHA-256 del JSON canónico (UTF-8, claves ordenadas, sin
+espacios no significativos) que combina la configuración efectiva y la
+identidad del código. La configuración incluirá como mínimo:
 
 - versión y release de los datos;
 - backend y dialecto;
@@ -89,7 +90,14 @@ espacios no significativos) que incluya como mínimo:
 - mapeos de `itemid`, unidades y parámetros clínicos;
 - versión del esquema de artefactos.
 
-Nunca incluirá usuario, contraseña, token, host privado ni DSN.
+La identidad del código será el commit abreviado cuando el árbol esté limpio.
+Si existen cambios locales, será
+`{commit}-dirty-{source_hash_12}`: `source_hash` resume el diff binario de los
+archivos versionados y el contenido y ruta de todos los archivos no
+versionados que Git no ignore. Por tanto, dos estados locales diferentes no
+comparten directorio de ejecución. Solo se guarda el digest; los archivos
+ignorados —incluidos datos, credenciales y `.env`— quedan fuera. Ninguna de
+estas identidades incluirá usuario, contraseña, token, host privado ni DSN.
 
 ## Estructura y nombres
 
@@ -252,7 +260,7 @@ general y una entrada por artefacto:
   "created_at_utc": "2026-07-18T12:00:00Z",
   "mimic_data_version": "2.2",
   "mimic_code": {"version": "v2.4.0", "commit": "570ef01"},
-  "project_commit": "commit-o-DIRTY+source_hash",
+  "code_version": "abc123def456-dirty-1a2b3c4d5e6f",
   "backend": "duckdb",
   "config_sha256": "...",
   "artifacts": {
@@ -274,9 +282,9 @@ general y una entrada por artefacto:
 
 Cada entrada registra además, cuando proceda, particiones, recuento de
 identificadores distintos, mínimo/máximo temporal, versión de PyArrow/DuckDB o
-motor SQL y resultado de los checks de calidad. `project_commit` no basta si el
-árbol está sucio: en ese caso se registra `DIRTY` y el hash de los archivos de
-código y configuración realmente usados.
+motor SQL y resultado de los checks de calidad. El commit no basta si el árbol
+está sucio: en ese caso `code_version` enlaza el commit con el hash del
+diff versionado y de los archivos no ignorados presentes en la ejecución.
 
 La procedencia de cada artefacto incluye:
 
