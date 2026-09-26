@@ -113,3 +113,54 @@ def test_culture_selection_rejects_unknown_scope_and_incomplete_schema():
     ])
     with pytest.raises(ValueError, match="Unsupported culture scope"):
         select_culture_collections(incomplete, culture_scope="respiratory_only")
+
+
+def test_sensitivity_must_change_exactly_one_definition_axis():
+    primary = {
+        "antibiotic_evidence": "first_qualifying_emar_administration",
+        "culture_scope": "blood_only",
+        "antibiotic_first_hours": 24,
+        "culture_first_hours": 72,
+    }
+    config = {
+        "schema_version": 1,
+        "phenotype": "suspected_infection_primary",
+        "primary": primary,
+        "sensitivities": {"invalid": dict(primary)},
+    }
+    with pytest.raises(ValueError, match="exactly one axis"):
+        suspected_infection_parameters(config, sensitivity="invalid")
+
+    config["sensitivities"]["invalid"] = {
+        **primary,
+        "antibiotic_evidence": "qualifying_prescription_start",
+        "culture_scope": "all_specimens",
+    }
+    with pytest.raises(ValueError, match="exactly one axis"):
+        suspected_infection_parameters(config, sensitivity="invalid")
+
+
+def test_both_pairing_windows_form_one_sensitivity_axis():
+    config = {
+        "schema_version": 1,
+        "phenotype": "suspected_infection_primary",
+        "primary": {
+            "antibiotic_evidence": "first_qualifying_emar_administration",
+            "culture_scope": "blood_only",
+            "antibiotic_first_hours": 24,
+            "culture_first_hours": 72,
+        },
+        "sensitivities": {
+            "alternative_windows": {
+                "antibiotic_evidence": "first_qualifying_emar_administration",
+                "culture_scope": "blood_only",
+                "antibiotic_first_hours": 12,
+                "culture_first_hours": 48,
+            }
+        },
+    }
+    result = suspected_infection_parameters(
+        config, sensitivity="alternative_windows"
+    )
+    assert result["antibiotic_first_hours"] == 12
+    assert result["culture_first_hours"] == 48

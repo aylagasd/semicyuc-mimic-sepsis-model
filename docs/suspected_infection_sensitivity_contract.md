@@ -41,6 +41,10 @@ microbiológicamente confirmada.
    comparan mediante agregados protegidos, nunca seleccionando la que produzca
    mejor prevalencia o rendimiento.
 
+La configuración rechaza una variante idéntica al primario o que cambie más de
+un eje. Las dos ventanas forman conjuntamente un solo eje temporal, por lo que
+una variante puede modificar ambas sin mezclar además alcance o evidencia.
+
 ## Evidencia y revisión
 
 - Seymour et al., *Assessment of Clinical Criteria for Sepsis* (JAMA, 2016),

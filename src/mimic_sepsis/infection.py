@@ -56,11 +56,36 @@ def suspected_infection_parameters(
         for value in windows.values()
     ):
         raise ValueError("Infection pairing windows must be non-negative numbers")
-    return {
+    parameters = {
         "antibiotic_evidence": evidence,
         "culture_scope": culture_scope,
         **windows,
     }
+    if sensitivity is not None:
+        primary = suspected_infection_parameters(config)
+        changed_axes = {
+            "antibiotic_evidence": (
+                parameters["antibiotic_evidence"]
+                != primary["antibiotic_evidence"]
+            ),
+            "culture_scope": (
+                parameters["culture_scope"] != primary["culture_scope"]
+            ),
+            "pairing_windows": (
+                parameters["antibiotic_first_hours"],
+                parameters["culture_first_hours"],
+            ) != (
+                primary["antibiotic_first_hours"],
+                primary["culture_first_hours"],
+            ),
+        }
+        changed = [name for name, differs in changed_axes.items() if differs]
+        if len(changed) != 1:
+            raise ValueError(
+                "A suspected-infection sensitivity must change exactly one "
+                "axis relative to primary"
+            )
+    return parameters
 
 
 def select_culture_collections(
