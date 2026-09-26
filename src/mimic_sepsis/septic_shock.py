@@ -213,6 +213,12 @@ def build_concurrency_sensitivity_labels(
             association_hours_before=association_hours_before,
             association_hours_after=association_hours_after,
         )
+        # Stabilize nullable dtypes across variants that may have no positives;
+        # this prevents concat from inferring a different schema from prevalence.
+        labels["lactate_mmol_l"] = pd.to_numeric(
+            labels["lactate_mmol_l"], errors="coerce"
+        ).astype("Float64")
+        labels["vasopressor"] = labels["vasopressor"].astype("string")
         labels.insert(0, "concurrency_hours", hours)
         labels.insert(0, "sensitivity", f"concurrency_{hours:g}h")
         frames.append(labels)
