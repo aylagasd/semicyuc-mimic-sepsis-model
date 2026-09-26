@@ -45,5 +45,46 @@ al test hasta ejecutar MIMIC-IV completo y congelar el modelo.
 ## Entorno
 
 `environment.yml` instala Python, R, Jupyter, IRkernel y `ggplot2` en un único
-entorno. Tras crearlo, ambos kernels deben aparecer en Jupyter. La ejecución
-integral se automatizará cuando estén implementados los primeros outcomes.
+entorno. Tras crearlo, ambos kernels deben aparecer en Jupyter. Hay que activar
+el entorno antes de iniciar Jupyter para que las celdas Python que llaman a
+`Rscript` hereden también la ruta de R:
+
+```bash
+export XDG_CACHE_HOME="$PWD/.cache"
+eval "$(.tools/micromamba/micromamba shell hook --shell bash \
+  --root-prefix .micromamba)"
+micromamba activate ./.micromamba/envs/semicyuc
+jupyter lab --no-browser
+```
+
+Para validar un notebook sin interfaz y conservar el original sin outputs:
+
+```bash
+mkdir -p data/derived/notebook_runs
+XDG_CACHE_HOME=.cache .tools/micromamba/micromamba run \
+  --root-prefix .micromamba -p .micromamba/envs/semicyuc \
+  jupyter nbconvert --to notebook --execute \
+  --ExecutePreprocessor.timeout=600 \
+  --output-dir data/derived/notebook_runs \
+  notebooks/12_sensitivity_and_subgroups.ipynb
+```
+
+La secuencia completa se ejecuta en orden lexicográfico desde la raíz del
+repositorio; cada notebook parte de un kernel nuevo y consume los artefactos
+persistidos por los anteriores:
+
+```bash
+mkdir -p data/derived/notebook_runs
+for notebook in notebooks/[0-1][0-9]_*.ipynb; do
+  XDG_CACHE_HOME=.cache .tools/micromamba/micromamba run \
+    --root-prefix .micromamba -p .micromamba/envs/semicyuc \
+    jupyter nbconvert --to notebook --execute \
+    --ExecutePreprocessor.timeout=600 \
+    --output-dir data/derived/notebook_runs "$notebook" || break
+done
+```
+
+El bucle se detiene en el primer error. `data/derived/notebook_runs/` está
+ignorado por Git y debe tratarse como protegido: puede contener tablas y
+figuras agregadas que no se publican sin revisión. En MIMIC-IV completo, las
+puertas de protocolo siguen bloqueando test aunque se ejecute toda la secuencia.

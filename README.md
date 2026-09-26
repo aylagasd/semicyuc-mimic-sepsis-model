@@ -214,6 +214,10 @@ pytest -q
 
 ## Pasos iniciales de investigación
 
+La secuencia ejecutable 00–13 y los comandos para Jupyter interactivo o
+validación sin interfaz están en
+[`notebooks/README.md`](notebooks/README.md).
+
 1. Registrar la versión exacta de MIMIC-IV y de los conceptos de `mimic-code`.
 2. Verificar acceso a `mimiciv_hosp`, `mimiciv_icu` y, si se usa,
    `mimiciv_derived` mediante el primer notebook.
