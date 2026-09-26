@@ -17,6 +17,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("sofa_run", type=Path)
     parser.add_argument("--output-root", type=Path, default=Path("data/derived/full_labels"))
     parser.add_argument("--rules", type=Path, default=Path("config/antimicrobial_rules.csv"))
+    parser.add_argument(
+        "--infection-config", type=Path,
+        default=Path("config/suspected_infection.json"),
+    )
     parser.add_argument("--sepsis-config", type=Path, default=Path("config/sepsis3.json"))
     parser.add_argument("--shock-config", type=Path, default=Path("config/septic_shock.json"))
     parser.add_argument("--duckdb-memory-limit", default="8GB")
@@ -35,6 +39,7 @@ def main() -> int:
     result = ChunkedLabelBuilder(
         args.source_dir, args.sofa_run, args.output_root,
         rules_path=args.rules, sepsis_config_path=args.sepsis_config,
+        infection_config_path=args.infection_config,
         shock_config_path=args.shock_config,
         code_version=code_version,
         duckdb_memory_limit=args.duckdb_memory_limit,

@@ -5,7 +5,7 @@ import pytest
 
 from mimic_sepsis.antimicrobials import (
     audit_antimicrobial_rules, classify_prescriptions, confirm_administrations,
-    load_antimicrobial_rules,
+    load_antimicrobial_rules, select_antimicrobial_starts,
 )
 
 
@@ -36,6 +36,24 @@ def test_confirmation_uses_earliest_exact_administered_event_not_negation():
     })
     result = confirm_administrations(classified, emar)
     assert result.loc[0, "administration_time"] == pd.Timestamp("2100-01-01 02:00")
+
+
+def test_start_selection_keeps_prescription_and_emar_evidence_distinct():
+    classified = classify_prescriptions(prescriptions(), RULES)
+    confirmed = classified.loc[classified["is_antimicrobial"]].assign(
+        administration_time=pd.Timestamp("2100-01-01 02:00")
+    )
+    prescribed = select_antimicrobial_starts(
+        classified, confirmed, evidence="qualifying_prescription_start"
+    )
+    administered = select_antimicrobial_starts(
+        classified, confirmed,
+        evidence="first_qualifying_emar_administration",
+    )
+    assert prescribed.loc[0, "antibiotic_time"] == pd.Timestamp("2100-01-01")
+    assert administered.loc[0, "antibiotic_time"] == pd.Timestamp(
+        "2100-01-01 02:00"
+    )
 
 
 def test_repository_rules_load():

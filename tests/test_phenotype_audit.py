@@ -6,6 +6,7 @@ from mimic_sepsis.phenotype_audit import (
     coverage_sensitivity_summary,
     coverage_summary,
     decision_evidence_summary,
+    infection_evidence_sensitivity_summary,
     infection_timing_summary,
     pair_multiplicity,
     shock_concurrency_sensitivity_summary,
@@ -21,6 +22,41 @@ def test_pair_multiplicity_uses_prespecified_bands():
     })
     result = pair_multiplicity(pairs).set_index("pairs_per_admission")["admissions"]
     assert result.to_dict() == {"1": 1, "2–4": 1, "5–9": 1, "≥10": 1}
+
+
+def test_infection_evidence_sensitivity_reports_incremental_phenotypes():
+    primary_pairs = pd.DataFrame({"hadm_id": [10, 20]})
+    primary_stays = pd.DataFrame({"stay_id": [100]})
+    sensitivity_pairs = pd.DataFrame({
+        "sensitivity": ["prescription_start"] * 3,
+        "hadm_id": [10, 20, 30],
+    })
+    sensitivity_stays = pd.DataFrame({
+        "sensitivity": ["prescription_start", "prescription_start"],
+        "stay_id": [100, 300],
+    })
+    result = infection_evidence_sensitivity_summary(
+        primary_pairs, primary_stays, sensitivity_pairs, sensitivity_stays
+    ).iloc[0]
+    assert result.delta_pairs_vs_primary == 1
+    assert result.delta_sepsis3_stays_vs_primary == 1
+    assert result.primary_sepsis3_stays_retained == 1
+    assert result.new_sepsis3_stays_vs_primary == 1
+
+
+def test_infection_sensitivity_rejects_duplicate_stays():
+    with pytest.raises(ValueError, match="duplicate stays"):
+        infection_evidence_sensitivity_summary(
+            pd.DataFrame({"hadm_id": [10]}),
+            pd.DataFrame({"stay_id": [100]}),
+            pd.DataFrame({
+                "sensitivity": ["prescription_start"], "hadm_id": [10],
+            }),
+            pd.DataFrame({
+                "sensitivity": ["prescription_start"] * 2,
+                "stay_id": [100, 100],
+            }),
+        )
 
 
 def test_coverage_categories_are_mutually_exclusive():
@@ -154,12 +190,20 @@ def test_decision_evidence_never_claims_automatic_freeze():
     assert result.loc["D002", "evidence_in_report"] == "not_comparative"
     assert result.loc["D011", "evidence_in_report"] == "quantitative_coverage_sensitivities"
     assert result.loc["D010", "evidence_in_report"] == "descriptive_only"
+    assert result.loc["D004", "evidence_in_report"] == "descriptive_only"
     with_sensitivity = decision_evidence_summary(
         shock_sensitivity_available=True
     ).set_index("decision_id")
     assert (
         with_sensitivity.loc["D010", "evidence_in_report"]
         == "quantitative_concurrency_sensitivities"
+    )
+    with_infection = decision_evidence_summary(
+        infection_sensitivity_available=True
+    ).set_index("decision_id")
+    assert (
+        with_infection.loc["D004", "evidence_in_report"]
+        == "quantitative_prescription_start_sensitivity"
     )
 
 

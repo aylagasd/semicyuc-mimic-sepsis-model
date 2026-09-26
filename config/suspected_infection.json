@@ -1,0 +1,18 @@
+{
+  "phenotype": "suspected_infection_primary",
+  "primary": {
+    "antibiotic_evidence": "first_qualifying_emar_administration",
+    "antibiotic_first_hours": 24,
+    "culture_first_hours": 72,
+    "culture_scope": "blood_only"
+  },
+  "schema_version": 1,
+  "sensitivities": {
+    "prescription_start": {
+      "antibiotic_evidence": "qualifying_prescription_start",
+      "antibiotic_first_hours": 24,
+      "culture_first_hours": 72,
+      "culture_scope": "blood_only"
+    }
+  }
+}

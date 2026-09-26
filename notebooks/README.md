@@ -20,7 +20,7 @@ entradas, salidas, versión de datos, semilla y criterios de finalización.
 | 09 | `09_feature_engineering.ipynb` | Python + R | Auditar landmarks, particiones y predictores temporales; comparar Matplotlib con `ggplot2` sin abrir el test. |
 | 10 | `10_model_development.ipynb` | Python + R | Ensamblar el horizonte primario y validar referencias de prevalencia/regresión clínica sin abrir el test. |
 | 11 | `11_model_evaluation.ipynb` | Python + R | Evaluación interna y comparación pareada con bootstrap por paciente; figura `ggplot2`, sin abrir test. |
-| 12 | `12_sensitivity_and_subgroups.ipynb` | Python + R | Sensibilidades de cohorte, concurrencia del proxy de shock, horizonte y lookback; contrato de subgrupos con supresión por privacidad. |
+| 12 | `12_sensitivity_and_subgroups.ipynb` | Python + R | Sensibilidades de cohorte, evidencia antimicrobiana, concurrencia del proxy de shock, horizonte y lookback; contrato de subgrupos con supresión por privacidad. |
 | 13 | `13_final_report.ipynb` | Python + R | Informe pre-test; admite demo monolítico o fuente particionada development/validation explícita. En esta última proyecta horizonte/variables primarios y aplica el preflight de 32 GiB antes de modelos, utilidad, subgrupos, missingness, readiness de calibración y figuras `ggplot2`. |
 
 La secuencia 00–13 está implementada. El paso 13 sigue siendo un informe previo

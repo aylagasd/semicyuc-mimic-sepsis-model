@@ -13,6 +13,7 @@ import pandas as pd
 
 from .antimicrobials import (
     classify_prescriptions, confirm_administrations, load_antimicrobial_rules,
+    select_antimicrobial_starts,
 )
 from .artifacts import ArtifactStore, ArtifactValidationError
 from .chunked_sofa import (
@@ -21,7 +22,9 @@ from .chunked_sofa import (
 )
 from .duckdb_runtime import configure_duckdb, validate_duckdb_runtime
 from .full_extract import _sql_path
-from .infection import pair_antibiotics_and_cultures
+from .infection import (
+    pair_antibiotics_and_cultures, suspected_infection_parameters,
+)
 from .sepsis_labels import (
     build_sepsis_episodes, first_sepsis_episode_per_stay,
     sepsis_episode_parameters,
@@ -45,6 +48,11 @@ COMPLETE_SOFA_ARTIFACTS = (
 SHOCK_SENSITIVITY_ARTIFACTS = (
     "septic_shock_concurrency_sensitivities",
 )
+INFECTION_SENSITIVITY_ARTIFACTS = (
+    "infection_sensitivity_pairs",
+    "infection_sensitivity_episodes",
+    "infection_sensitivity_stays",
+)
 LABEL_ARTIFACTS = (
     "suspected_infection_pairs",
     "sepsis_episodes",
@@ -52,6 +60,7 @@ LABEL_ARTIFACTS = (
     *COMPLETE_SOFA_ARTIFACTS,
     "septic_shock_stays",
     *SHOCK_SENSITIVITY_ARTIFACTS,
+    *INFECTION_SENSITIVITY_ARTIFACTS,
 )
 
 
@@ -65,6 +74,7 @@ class ChunkedLabelBuilder:
         output_root: Path,
         *,
         rules_path: Path,
+        infection_config_path: Path,
         sepsis_config_path: Path,
         shock_config_path: Path,
         code_version: str = "unknown",
@@ -76,6 +86,7 @@ class ChunkedLabelBuilder:
         self.sofa_run = Path(sofa_run)
         self.output_root = Path(output_root)
         self.rules_path = Path(rules_path)
+        self.infection_config_path = Path(infection_config_path)
         self.sepsis_config_path = Path(sepsis_config_path)
         self.shock_config_path = Path(shock_config_path)
         self.code_version = str(code_version)
@@ -91,7 +102,7 @@ class ChunkedLabelBuilder:
     ) -> dict[str, Any]:
         return {
             "backend": "partitioned-pandas-labels",
-            "chunked_label_schema_version": 5,
+            "chunked_label_schema_version": 6,
             "code_version": self.code_version,
             "duckdb_memory_limit": self.duckdb_memory_limit,
             "duckdb_threads": self.duckdb_threads,
@@ -104,6 +115,9 @@ class ChunkedLabelBuilder:
             "antimicrobial_rules_sha256": hashlib.sha256(
                 self.rules_path.read_bytes()
             ).hexdigest(),
+            "suspected_infection": json.loads(
+                self.infection_config_path.read_text(encoding="utf-8")
+            ),
             "sepsis3": json.loads(
                 self.sepsis_config_path.read_text(encoding="utf-8")
             ),
@@ -138,6 +152,8 @@ class ChunkedLabelBuilder:
             artifact: [] for artifact in LABEL_ARTIFACTS
         }
         rules = load_antimicrobial_rules(self.rules_path)
+        infection_config = config["suspected_infection"]
+        primary_infection = suspected_infection_parameters(infection_config)
         shock_config = config["shock_config"]
         cohort_path = _sql_path(self.source_dir / "cohort_stays.parquet")
         connection = duckdb.connect()
@@ -208,12 +224,11 @@ class ChunkedLabelBuilder:
                 )
                 classified = classify_prescriptions(prescriptions, rules)
                 confirmed = confirm_administrations(classified, emar)
-                antibiotics = confirmed.dropna(subset=["administration_time"])[
-                    ["subject_id", "hadm_id", "pharmacy_id", "administration_time"]
-                ].rename(columns={
-                    "pharmacy_id": "antibiotic_id",
-                    "administration_time": "antibiotic_time",
-                })
+                antibiotics = select_antimicrobial_starts(
+                    classified,
+                    confirmed,
+                    evidence=primary_infection["antibiotic_evidence"],
+                )
                 microbiology["culture_time"] = pd.to_datetime(
                     microbiology["charttime"], errors="coerce"
                 ).fillna(pd.to_datetime(microbiology["chartdate"], errors="coerce"))
@@ -231,7 +246,16 @@ class ChunkedLabelBuilder:
                     [["subject_id", "hadm_id", "micro_specimen_id", "culture_time"]]
                     .rename(columns={"micro_specimen_id": "culture_id"})
                 )
-                pairs = pair_antibiotics_and_cultures(antibiotics, cultures)
+                pairs = pair_antibiotics_and_cultures(
+                    antibiotics,
+                    cultures,
+                    antibiotic_first_hours=primary_infection[
+                        "antibiotic_first_hours"
+                    ],
+                    culture_first_hours=primary_infection[
+                        "culture_first_hours"
+                    ],
+                )
                 for column in ("antibiotic_time", "culture_time", "t_si"):
                     pairs[column] = pairs[column].astype("datetime64[ns]")
                 sepsis_config = config["sepsis3"]
@@ -248,6 +272,51 @@ class ChunkedLabelBuilder:
                 )
                 complete_stays = first_sepsis_episode_per_stay(
                     complete_episodes
+                )
+                sensitivity_pairs = []
+                sensitivity_episodes = []
+                sensitivity_stays = []
+                for sensitivity_name in infection_config["sensitivities"]:
+                    definition = suspected_infection_parameters(
+                        infection_config, sensitivity=sensitivity_name
+                    )
+                    variant_antibiotics = select_antimicrobial_starts(
+                        classified,
+                        confirmed,
+                        evidence=definition["antibiotic_evidence"],
+                    )
+                    variant_pairs = pair_antibiotics_and_cultures(
+                        variant_antibiotics,
+                        cultures,
+                        antibiotic_first_hours=definition[
+                            "antibiotic_first_hours"
+                        ],
+                        culture_first_hours=definition["culture_first_hours"],
+                    )
+                    variant_episodes = build_sepsis_episodes(
+                        variant_pairs,
+                        cohort,
+                        sofa,
+                        **sepsis_episode_parameters(sepsis_config),
+                    )
+                    variant_stays = first_sepsis_episode_per_stay(
+                        variant_episodes
+                    )
+                    for frame in (
+                        variant_pairs, variant_episodes, variant_stays
+                    ):
+                        frame.insert(0, "sensitivity", sensitivity_name)
+                    sensitivity_pairs.append(variant_pairs)
+                    sensitivity_episodes.append(variant_episodes)
+                    sensitivity_stays.append(variant_stays)
+                infection_sensitivity_pairs = pd.concat(
+                    sensitivity_pairs, ignore_index=True
+                )
+                infection_sensitivity_episodes = pd.concat(
+                    sensitivity_episodes, ignore_index=True
+                )
+                infection_sensitivity_stays = pd.concat(
+                    sensitivity_stays, ignore_index=True
                 )
                 lactates = normalize_lactate(
                     self._read_for_batch(
@@ -284,6 +353,9 @@ class ChunkedLabelBuilder:
                     (
                         pairs, episodes, sepsis_stays, complete_episodes,
                         complete_stays, shock, shock_sensitivities,
+                        infection_sensitivity_pairs,
+                        infection_sensitivity_episodes,
+                        infection_sensitivity_stays,
                     ),
                     strict=True,
                 ))

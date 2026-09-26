@@ -199,6 +199,8 @@ La política de estancias D002 tiene un informe protegido complementario,
 La revisión estática de la lista antimicrobiana D004 se prepara con
 `scripts/audit_antimicrobial_rules.py` y se documenta en
 [`docs/antimicrobial_rule_review.md`](docs/antimicrobial_rule_review.md).
+La definición temporal primaria y la sensibilidad por inicio de prescripción
+se versionan en `config/suspected_infection.json` y se materializan por separado.
 El contrato de variantes del proxy de shock D010 está en
 [`docs/septic_shock_sensitivity_contract.md`](docs/septic_shock_sensitivity_contract.md).
 

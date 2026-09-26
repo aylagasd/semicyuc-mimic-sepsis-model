@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
 import pandas as pd
 
 
@@ -9,6 +12,52 @@ PAIR_COLUMNS = [
     "subject_id", "hadm_id", "antibiotic_id", "antibiotic_time",
     "culture_id", "culture_time", "pair_direction", "delta_hours", "t_si",
 ]
+
+
+def suspected_infection_parameters(
+    config: Mapping[str, Any], *, sensitivity: str | None = None
+) -> dict[str, Any]:
+    """Validate the versioned infection definition and return its parameters."""
+    if config.get("schema_version") != 1:
+        raise ValueError("Unsupported suspected-infection configuration schema")
+    if config.get("phenotype") != "suspected_infection_primary":
+        raise ValueError("Unexpected suspected-infection phenotype identifier")
+    if sensitivity is None:
+        definition = config.get("primary")
+    else:
+        try:
+            definition = config["sensitivities"][sensitivity]
+        except (KeyError, TypeError) as error:
+            raise ValueError(
+                f"Unknown suspected-infection sensitivity: {sensitivity}"
+            ) from error
+    if not isinstance(definition, Mapping):
+        raise ValueError("Malformed suspected-infection definition")
+    allowed_evidence = {
+        "first_qualifying_emar_administration",
+        "qualifying_prescription_start",
+    }
+    evidence = definition.get("antibiotic_evidence")
+    if evidence not in allowed_evidence:
+        raise ValueError("Unsupported antimicrobial evidence")
+    if definition.get("culture_scope") != "blood_only":
+        raise ValueError("Unsupported culture scope")
+    windows = {
+        key: definition.get(key)
+        for key in ("antibiotic_first_hours", "culture_first_hours")
+    }
+    if any(
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or value < 0
+        for value in windows.values()
+    ):
+        raise ValueError("Infection pairing windows must be non-negative numbers")
+    return {
+        "antibiotic_evidence": evidence,
+        "culture_scope": "blood_only",
+        **windows,
+    }
 
 
 def pair_antibiotics_and_cultures(
@@ -62,6 +111,8 @@ def pair_antibiotics_and_cultures(
     pairs.loc[delta_hours < 0, "pair_direction"] = "culture_first"
     pairs["delta_hours"] = delta_hours.abs()
     pairs["t_si"] = pairs[["antibiotic_time", "culture_time"]].min(axis=1)
+    for column in ("antibiotic_time", "culture_time", "t_si"):
+        pairs[column] = pairs[column].astype("datetime64[ns]")
     return pairs[PAIR_COLUMNS].sort_values(
         ["subject_id", "hadm_id", "t_si", "delta_hours", "antibiotic_id", "culture_id"]
     ).reset_index(drop=True)

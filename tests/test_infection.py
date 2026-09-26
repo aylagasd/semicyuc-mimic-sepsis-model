@@ -1,7 +1,9 @@
 import pandas as pd
 import pytest
 
-from mimic_sepsis.infection import pair_antibiotics_and_cultures
+from mimic_sepsis.infection import (
+    pair_antibiotics_and_cultures, suspected_infection_parameters,
+)
 
 
 def antibiotics(times):
@@ -24,6 +26,7 @@ def test_antibiotic_first_includes_24_hour_boundary():
     )
     assert result.loc[0, "pair_direction"] == "antibiotic_first"
     assert result.loc[0, "delta_hours"] == 24
+    assert str(result["antibiotic_time"].dtype) == "datetime64[ns]"
 
 
 def test_culture_first_includes_72_hour_boundary():
@@ -47,3 +50,32 @@ def test_events_outside_windows_and_other_admissions_do_not_pair():
 def test_negative_window_is_rejected():
     with pytest.raises(ValueError, match="non-negative"):
         pair_antibiotics_and_cultures(antibiotics([]), cultures([]), antibiotic_first_hours=-1)
+
+
+def test_versioned_infection_parameters_separate_primary_and_sensitivity():
+    config = {
+        "schema_version": 1,
+        "phenotype": "suspected_infection_primary",
+        "primary": {
+            "antibiotic_evidence": "first_qualifying_emar_administration",
+            "culture_scope": "blood_only",
+            "antibiotic_first_hours": 24,
+            "culture_first_hours": 72,
+        },
+        "sensitivities": {
+            "prescription_start": {
+                "antibiotic_evidence": "qualifying_prescription_start",
+                "culture_scope": "blood_only",
+                "antibiotic_first_hours": 24,
+                "culture_first_hours": 72,
+            }
+        },
+    }
+    assert suspected_infection_parameters(config)["antibiotic_evidence"].startswith(
+        "first_qualifying_emar"
+    )
+    assert suspected_infection_parameters(
+        config, sensitivity="prescription_start"
+    )["antibiotic_evidence"] == "qualifying_prescription_start"
+    with pytest.raises(ValueError, match="Unknown suspected-infection sensitivity"):
+        suspected_infection_parameters(config, sensitivity="unplanned")

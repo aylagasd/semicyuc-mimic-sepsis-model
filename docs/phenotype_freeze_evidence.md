@@ -43,6 +43,7 @@ protocolo produce el mismo `report_sha256`, aunque cambie la hora de creación.
 |---|---|---|
 | `phenotype_summary` | pares, ingresos, filas par–estancia o estancias, indicado por fila | Flujo general del fenotipo. |
 | `infection_timing` | pares antimicrobiano–cultivo | Orden temporal de las dos evidencias de infección. |
+| `infection_evidence_sensitivities` | pares/ingresos/estancias por variante | Consecuencia de usar inicio de prescripción en lugar de administración EMAR. |
 | `pair_multiplicity` | ingresos con pares | Multiplicidad de candidatos por ingreso. |
 | `coverage` | filas par–estancia | Cobertura aguda completa, parcial o no evaluable. |
 | `coverage_sensitivities` | filas y estancias elegibles; estancias Sepsis-3 | Primario, baseline observado, ventana aguda completa y combinación. |
@@ -69,10 +70,12 @@ política distinta.
 ### D004 — sospecha de infección
 
 El informe comprueba multiplicidad y orden temporal de los pares producidos por
-la regla vigente. No valida la adecuación clínica de cada antimicrobiano ni
-decide si deben entrar profilaxis, otras vías o cultivos no sanguíneos. La lista
-versionada y las sensibilidades continúan requiriendo revisión de
-infecciosas/farmacia e intensivos.
+la regla vigente. La variante `prescription_start` reconstruye pares, episodios
+y primeros `t0` usando el inicio de cada prescripción sistémica elegible y los
+compara con el primario confirmado por EMAR. No valida la adecuación clínica de
+cada antimicrobiano ni decide si deben entrar profilaxis, otras vías, cultivos
+no sanguíneos o ventanas distintas. La lista versionada y esas variantes aún
+pendientes continúan requiriendo revisión de infecciosas/farmacia e intensivos.
 
 ### D010 — proxy de shock séptico
 

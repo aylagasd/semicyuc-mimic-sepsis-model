@@ -50,6 +50,68 @@ def infection_timing_summary(pairs: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def infection_evidence_sensitivity_summary(
+    primary_pairs: pd.DataFrame,
+    primary_stays: pd.DataFrame,
+    sensitivity_pairs: pd.DataFrame,
+    sensitivity_stays: pd.DataFrame,
+) -> pd.DataFrame:
+    """Compare recomputed infection-evidence variants with the primary labels."""
+    _require(primary_pairs, {"hadm_id"}, "primary_pairs")
+    _require(primary_stays, {"stay_id"}, "primary_stays")
+    _require(
+        sensitivity_pairs, {"sensitivity", "hadm_id"}, "sensitivity_pairs"
+    )
+    _require(
+        sensitivity_stays, {"sensitivity", "stay_id"}, "sensitivity_stays"
+    )
+    pair_names = list(sensitivity_pairs["sensitivity"].drop_duplicates())
+    stay_names = list(sensitivity_stays["sensitivity"].drop_duplicates())
+    if not pair_names or not set(stay_names).issubset(pair_names):
+        raise ValueError(
+            "Infection sensitivity stays contain an unknown variant"
+        )
+    if primary_stays["stay_id"].duplicated().any():
+        raise ValueError("primary_stays must contain at most one row per stay")
+    primary_stay_ids = set(primary_stays["stay_id"])
+    rows = []
+    for name in pair_names:
+        pairs = sensitivity_pairs.loc[sensitivity_pairs["sensitivity"].eq(name)]
+        stays = sensitivity_stays.loc[sensitivity_stays["sensitivity"].eq(name)]
+        if stays["stay_id"].duplicated().any():
+            raise ValueError(
+                f"Infection sensitivity {name!r} contains duplicate stays"
+            )
+        stay_ids = set(stays["stay_id"])
+        rows.append({
+            "sensitivity": str(name),
+            "infection_pairs": len(pairs),
+            "admissions_with_pairs": pairs["hadm_id"].nunique(),
+            "sepsis3_stays": len(stays),
+            "delta_pairs_vs_primary": len(pairs) - len(primary_pairs),
+            "delta_sepsis3_stays_vs_primary": len(stays) - len(primary_stays),
+            "primary_sepsis3_stays_retained": len(stay_ids & primary_stay_ids),
+            "new_sepsis3_stays_vs_primary": len(stay_ids - primary_stay_ids),
+            "available": True,
+        })
+    return pd.DataFrame(rows)
+
+
+def unavailable_infection_evidence_sensitivities() -> pd.DataFrame:
+    """Represent runs that predate materialized D004 sensitivities."""
+    return pd.DataFrame([{
+        "sensitivity": "not_available",
+        "infection_pairs": None,
+        "admissions_with_pairs": None,
+        "sepsis3_stays": None,
+        "delta_pairs_vs_primary": None,
+        "delta_sepsis3_stays_vs_primary": None,
+        "primary_sepsis3_stays_retained": None,
+        "new_sepsis3_stays_vs_primary": None,
+        "available": False,
+    }])
+
+
 def phenotype_summary(
     pairs: pd.DataFrame, episodes: pd.DataFrame, sepsis_stays: pd.DataFrame,
     shock_stays: pd.DataFrame | None = None,
@@ -318,6 +380,7 @@ def unavailable_shock_concurrency_sensitivities() -> pd.DataFrame:
 def decision_evidence_summary(
     *, complete_sofa_available: bool = False,
     shock_sensitivity_available: bool = False,
+    infection_sensitivity_available: bool = False,
 ) -> pd.DataFrame:
     """Declare what one primary phenotype run can and cannot resolve."""
     return pd.DataFrame([
@@ -331,10 +394,15 @@ def decision_evidence_summary(
         },
         {
             "decision_id": "D004",
-            "evidence_in_report": "descriptive_only",
+            "evidence_in_report": (
+                "quantitative_prescription_start_sensitivity"
+                if infection_sensitivity_available
+                else "descriptive_only"
+            ),
             "remaining_requirement": (
                 "clinical review of the versioned antimicrobial list and "
-                "prespecified infection sensitivities"
+                "decisions on expanded cultures, pairing windows and "
+                "perioperative exclusions"
             ),
         },
         {

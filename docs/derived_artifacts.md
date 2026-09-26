@@ -4,7 +4,7 @@
 
 La etapa `40_labels/` se publica solo después de validar `00_cohort/` y
 `30_score/`, y comparte exactamente el mismo `run_id` y hash de configuración.
-Contiene siete tablas protegidas:
+Contiene diez tablas protegidas:
 
 | Artefacto | Granularidad | Clave lógica |
 |---|---|---|
@@ -15,8 +15,11 @@ Contiene siete tablas protegidas:
 | `sepsis_stays_complete_sofa` | primer episodio de la sensibilidad completa por estancia | `stay_id` |
 | `septic_shock_stays` | proxy de shock evaluado en cada estancia Sepsis-3 | `stay_id` |
 | `septic_shock_concurrency_sensitivities` | recálculo largo del proxy para cada ventana preespecificada | `sensitivity`, `stay_id` |
+| `infection_sensitivity_pairs` | pares recalculados para cada fuente alternativa de antimicrobiano | `sensitivity` + clave del par |
+| `infection_sensitivity_episodes` | fenotipo Sepsis-3 recalculado desde cada variante de pares | `sensitivity` + clave del episodio |
+| `infection_sensitivity_stays` | primer episodio positivo por estancia y variante | `sensitivity`, `stay_id` |
 
-Los siete artefactos son datos a nivel de paciente: permanecen bajo `data/`, no
+Los diez artefactos son datos a nivel de paciente: permanecen bajo `data/`, no
 se versionan y no se muestran como filas en notebooks. Sus manifiestos incluyen
 checksum, esquema, versión de datos, versión de código y hash de la definición
 de `config/sepsis3.json`. Los agregados deben declarar denominador y distinguir
@@ -30,6 +33,10 @@ basada en `sofa_total`.
 Las sensibilidades de concurrencia tampoco filtran la etiqueta primaria:
 reconstruyen cada etiqueta desde los lactatos e intervalos de vasopresores y
 exigen exactamente una fila por estancia Sepsis-3 y variante.
+
+La sensibilidad de inicio de prescripción reconstruye los pares y todo el
+fenotipo Sepsis-3. No sustituye retrospectivamente la hora del antimicrobiano
+en episodios seleccionados por la definición EMAR.
 
 ## Propósito
 

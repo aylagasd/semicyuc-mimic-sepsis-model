@@ -33,3 +33,8 @@ La revisión de la lista debe combinarse con los agregados de cobertura y tiempo
 de `scripts/audit_phenotype_freeze.py`. El paquete estático prueba qué reglas se
 revisaron; el informe fenotípico muestra cómo operaron sobre los datos. Ninguno
 de los dos sustituye la firma descrita en `clinical_freeze_dossier.md`.
+
+La sensibilidad `prescription_start` definida en
+`config/suspected_infection.json` usa las mismas reglas sistémicas y ventanas,
+pero toma `prescription_time` sin exigir confirmación EMAR. Se materializa por
+separado y no modifica la definición primaria.

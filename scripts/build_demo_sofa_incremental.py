@@ -21,12 +21,15 @@ from mimic_sepsis.antimicrobials import (
     classify_prescriptions,
     confirm_administrations,
     load_antimicrobial_rules,
+    select_antimicrobial_starts,
 )
 from mimic_sepsis.artifacts import ArtifactStore, ArtifactValidationError
 from mimic_sepsis.cohort import StayPolicy, build_adult_icu_cohort
 from mimic_sepsis.feature_sources import normalize_lab_feature_events, normalize_vital_events
 from mimic_sepsis.features import build_numeric_feature_matrix
-from mimic_sepsis.infection import pair_antibiotics_and_cultures
+from mimic_sepsis.infection import (
+    pair_antibiotics_and_cultures, suspected_infection_parameters,
+)
 from mimic_sepsis.landmarks import build_multiple_horizons
 from mimic_sepsis.sepsis_labels import (
     build_sepsis_episodes, first_sepsis_episode_per_stay,
@@ -46,7 +49,7 @@ from mimic_sepsis.sofa_hourly import build_icustay_hourly_grid
 DATA_VERSION = "2.2"
 MIMIC_CODE_VERSION = "v2.4.0"
 MIMIC_CODE_COMMIT = "570ef01"
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 RAW_TABLES = {
     "icustays": "icu/icustays.csv.gz",
     "chartevents": "icu/chartevents.csv.gz",
@@ -90,12 +93,10 @@ def canonical_config(
         "mimic_code_version": MIMIC_CODE_VERSION,
         "rolling_window_hours": 24,
         "window_semantics": "(endtime-24h,endtime]",
-        "suspected_infection": {
-            "antibiotic_evidence": "first_qualifying_emar_administration",
-            "antibiotic_first_hours": 24,
-            "culture_first_hours": 72,
-            "culture_scope": "blood_only",
-        },
+        "suspected_infection": json.loads(
+            (Path(__file__).resolve().parents[1] / "config" / "suspected_infection.json")
+            .read_text(encoding="utf-8")
+        ),
         "sepsis3": json.loads(
             (Path(__file__).resolve().parents[1] / "config" / "sepsis3.json")
             .read_text(encoding="utf-8")
@@ -282,6 +283,8 @@ def build_label_stage(
         "suspected_infection_pairs", "sepsis_episodes", "sepsis_stays",
         "sepsis_episodes_complete_sofa", "sepsis_stays_complete_sofa",
         "septic_shock_stays", "septic_shock_concurrency_sensitivities",
+        "infection_sensitivity_pairs", "infection_sensitivity_episodes",
+        "infection_sensitivity_stays",
     )
     if all(_valid(label_store, name, config, resume=resume) for name in names):
         return
@@ -303,11 +306,12 @@ def build_label_stage(
     rules = load_antimicrobial_rules(repo / "config" / "antimicrobial_rules.csv")
     classified = classify_prescriptions(sources["prescriptions"], rules)
     confirmed = confirm_administrations(classified, sources["emar"])
-    antibiotics = confirmed.dropna(subset=["administration_time"])[
-        ["subject_id", "hadm_id", "pharmacy_id", "administration_time"]
-    ].rename(columns={
-        "pharmacy_id": "antibiotic_id", "administration_time": "antibiotic_time"
-    })
+    infection_config = config["suspected_infection"]
+    primary_infection = suspected_infection_parameters(infection_config)
+    antibiotics = select_antimicrobial_starts(
+        classified, confirmed,
+        evidence=primary_infection["antibiotic_evidence"],
+    )
 
     microbiology = sources["microbiologyevents"].copy()
     microbiology["culture_time"] = pd.to_datetime(
@@ -323,7 +327,12 @@ def build_label_stage(
         [["subject_id", "hadm_id", "micro_specimen_id", "culture_time"]]
         .rename(columns={"micro_specimen_id": "culture_id"})
     )
-    pairs = pair_antibiotics_and_cultures(antibiotics, cultures)
+    pairs = pair_antibiotics_and_cultures(
+        antibiotics,
+        cultures,
+        antibiotic_first_hours=primary_infection["antibiotic_first_hours"],
+        culture_first_hours=primary_infection["culture_first_hours"],
+    )
     sepsis_config = config["sepsis3"]
     episodes = build_sepsis_episodes(
         pairs, stays, sofa, **sepsis_episode_parameters(sepsis_config)
@@ -336,6 +345,36 @@ def build_label_stage(
         ),
     )
     complete_stays = first_sepsis_episode_per_stay(complete_episodes)
+    sensitivity_pairs = []
+    sensitivity_episodes = []
+    sensitivity_stays = []
+    for sensitivity_name in infection_config["sensitivities"]:
+        definition = suspected_infection_parameters(
+            infection_config, sensitivity=sensitivity_name
+        )
+        variant_antibiotics = select_antimicrobial_starts(
+            classified, confirmed, evidence=definition["antibiotic_evidence"]
+        )
+        variant_pairs = pair_antibiotics_and_cultures(
+            variant_antibiotics,
+            cultures,
+            antibiotic_first_hours=definition["antibiotic_first_hours"],
+            culture_first_hours=definition["culture_first_hours"],
+        )
+        variant_episodes = build_sepsis_episodes(
+            variant_pairs, stays, sofa, **sepsis_episode_parameters(sepsis_config)
+        )
+        variant_stays = first_sepsis_episode_per_stay(variant_episodes)
+        for frame in (variant_pairs, variant_episodes, variant_stays):
+            frame.insert(0, "sensitivity", sensitivity_name)
+        sensitivity_pairs.append(variant_pairs)
+        sensitivity_episodes.append(variant_episodes)
+        sensitivity_stays.append(variant_stays)
+    infection_sensitivity_pairs = pd.concat(sensitivity_pairs, ignore_index=True)
+    infection_sensitivity_episodes = pd.concat(
+        sensitivity_episodes, ignore_index=True
+    )
+    infection_sensitivity_stays = pd.concat(sensitivity_stays, ignore_index=True)
     shock_sources = read_demo_tables(data_dir, ("labevents", "inputevents"))
     shock_config = config["septic_shock"]
     lactates = normalize_lactate(
@@ -362,7 +401,8 @@ def build_label_stage(
     )
     frames = (
         pairs, episodes, sepsis_stays, complete_episodes, complete_stays,
-        shock_stays, shock_sensitivities,
+        shock_stays, shock_sensitivities, infection_sensitivity_pairs,
+        infection_sensitivity_episodes, infection_sensitivity_stays,
     )
     for name, frame in zip(names, frames, strict=True):
         label_store.write_dataframe(

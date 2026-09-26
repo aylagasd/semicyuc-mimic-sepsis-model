@@ -134,3 +134,48 @@ def confirm_administrations(
         administrations[["subject_id", "hadm_id", "pharmacy_id", "administration_time", "event_txt"]],
         on=["subject_id", "hadm_id", "pharmacy_id"], how="left", validate="many_to_one",
     )
+
+
+def select_antimicrobial_starts(
+    classified_prescriptions: pd.DataFrame,
+    confirmed_administrations: pd.DataFrame,
+    *,
+    evidence: str,
+) -> pd.DataFrame:
+    """Return one canonical antimicrobial start per pharmacy order."""
+    keys = ["subject_id", "hadm_id", "pharmacy_id"]
+    if evidence == "first_qualifying_emar_administration":
+        required = set(keys) | {"administration_time"}
+        missing = sorted(required - set(confirmed_administrations.columns))
+        if missing:
+            raise ValueError(
+                "confirmed_administrations is missing columns: "
+                + ", ".join(missing)
+            )
+        starts = confirmed_administrations[keys + ["administration_time"]].copy()
+        starts = starts.rename(columns={"administration_time": "antibiotic_time"})
+    elif evidence == "qualifying_prescription_start":
+        required = set(keys) | {"is_antimicrobial", "prescription_time"}
+        missing = sorted(required - set(classified_prescriptions.columns))
+        if missing:
+            raise ValueError(
+                "classified_prescriptions is missing columns: "
+                + ", ".join(missing)
+            )
+        starts = classified_prescriptions.loc[
+            classified_prescriptions["is_antimicrobial"],
+            keys + ["prescription_time"],
+        ].copy()
+        starts = starts.rename(columns={"prescription_time": "antibiotic_time"})
+    else:
+        raise ValueError(f"Unsupported antimicrobial evidence: {evidence}")
+    starts["antibiotic_time"] = pd.to_datetime(
+        starts["antibiotic_time"], errors="coerce"
+    )
+    return (
+        starts.dropna(subset=keys + ["antibiotic_time"])
+        .sort_values([*keys, "antibiotic_time"], kind="stable")
+        .drop_duplicates(keys, keep="first")
+        .rename(columns={"pharmacy_id": "antibiotic_id"})
+        .reset_index(drop=True)
+    )

@@ -167,6 +167,7 @@ def main() -> int:
         lambda: ChunkedLabelBuilder(
             args.source_dir, sofa_run, args.output_root / "labels",
             rules_path=repo / "config" / "antimicrobial_rules.csv",
+            infection_config_path=repo / "config" / "suspected_infection.json",
             sepsis_config_path=repo / "config" / "sepsis3.json",
             shock_config_path=repo / "config" / "septic_shock.json",
             code_version=code_version,

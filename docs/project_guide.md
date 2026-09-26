@@ -84,6 +84,10 @@ no era observable.
 La clasificación farmacológica se encuentra en
 [`config/antimicrobial_rules.csv`](../config/antimicrobial_rules.csv). Es
 provisional hasta su revisión clínica antes del análisis completo.
+La fuente temporal primaria, sus ventanas y la sensibilidad que usa inicio de
+prescripción están separadas en
+[`config/suspected_infection.json`](../config/suspected_infection.json). Esta
+última reconstruye pares y Sepsis-3; no modifica los episodios EMAR ya elegidos.
 
 ### 4.2 SOFA horario
 

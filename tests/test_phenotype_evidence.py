@@ -163,6 +163,47 @@ def test_evidence_uses_recomputed_shock_concurrency_artifact():
     assert d010["evidence_in_report"] == "quantitative_concurrency_sensitivities"
 
 
+def test_evidence_uses_recomputed_prescription_start_artifacts():
+    source = _source()
+    variant_pairs = source.tables["suspected_infection_pairs"].assign(
+        sensitivity="prescription_start"
+    )
+    variant_episodes = source.tables["sepsis_episodes"].assign(
+        sensitivity="prescription_start"
+    )
+    variant_stays = source.tables["sepsis_stays"].assign(
+        sensitivity="prescription_start"
+    )
+    variant_tables = {
+        "infection_sensitivity_pairs": variant_pairs,
+        "infection_sensitivity_episodes": variant_episodes,
+        "infection_sensitivity_stays": variant_stays,
+    }
+    source = ValidatedPhenotypeSource(
+        layout=source.layout,
+        data_version=source.data_version,
+        config_sha256=source.config_sha256,
+        artifact_sha256={
+            **source.artifact_sha256,
+            **{name: str(index) * 64 for index, name in enumerate(
+                variant_tables, 5
+            )},
+        },
+        tables={**source.tables, **variant_tables},
+    )
+    content = build_phenotype_evidence(source, protocol_status=STATUSES)
+    row = content["tables"]["infection_evidence_sensitivities"][0]
+    assert row["sensitivity"] == "prescription_start"
+    assert row["available"] is True
+    d004 = next(
+        row for row in content["tables"]["decision_evidence"]
+        if row["decision_id"] == "D004"
+    )
+    assert d004["evidence_in_report"] == (
+        "quantitative_prescription_start_sensitivity"
+    )
+
+
 def test_evidence_round_trip_is_content_bound_and_private(tmp_path):
     content = build_phenotype_evidence(_source(), protocol_status=STATUSES)
     path = tmp_path / "evidence.json"

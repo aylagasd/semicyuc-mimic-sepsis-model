@@ -182,11 +182,21 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "load_antimicrobial_rules", lambda path: pd.DataFrame())
     monkeypatch.setattr(cli, "classify_prescriptions", lambda frame, rules: frame)
     monkeypatch.setattr(cli, "confirm_administrations", lambda frame, emar: confirmed)
-    monkeypatch.setattr(cli, "pair_antibiotics_and_cultures", lambda a, c: pairs)
+    starts = pd.DataFrame({
+        "subject_id": [1], "hadm_id": [10], "antibiotic_id": [20],
+        "antibiotic_time": ["2100-01-01"],
+    })
     monkeypatch.setattr(
-        cli, "build_sepsis_episodes", lambda p, s, h, **kwargs: episodes
+        cli, "select_antimicrobial_starts", lambda *args, **kwargs: starts
     )
-    monkeypatch.setattr(cli, "first_sepsis_episode_per_stay", lambda e: e)
+    monkeypatch.setattr(
+        cli, "pair_antibiotics_and_cultures",
+        lambda *args, **kwargs: pairs.copy(),
+    )
+    monkeypatch.setattr(
+        cli, "build_sepsis_episodes", lambda p, s, h, **kwargs: episodes.copy()
+    )
+    monkeypatch.setattr(cli, "first_sepsis_episode_per_stay", lambda e: e.copy())
     monkeypatch.setattr(cli, "read_demo_tables", lambda data_dir, names: {
         "labevents": pd.DataFrame(), "inputevents": pd.DataFrame(),
     })
@@ -216,6 +226,8 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
         "suspected_infection_pairs", "sepsis_episodes", "sepsis_stays",
         "sepsis_episodes_complete_sofa", "sepsis_stays_complete_sofa",
         "septic_shock_stays", "septic_shock_concurrency_sensitivities",
+        "infection_sensitivity_pairs", "infection_sensitivity_episodes",
+        "infection_sensitivity_stays",
     ):
         assert store.validate(name, expected_config=config).rows == 1
 
