@@ -19,6 +19,7 @@ SHOCK_COLUMNS = [
     "lactate_mmol_l", "vasopressor", "vasopressor_start",
     "adequate_fluids_verified",
 ]
+SHOCK_SENSITIVITY_COLUMNS = ["sensitivity", "concurrency_hours", *SHOCK_COLUMNS]
 
 
 def _require(frame: pd.DataFrame, columns: set[str], name: str) -> None:
@@ -183,3 +184,36 @@ def build_septic_shock_labels(
                 "vasopressor_start": pd.NaT, "adequate_fluids_verified": False,
             })
     return pd.DataFrame(rows, columns=SHOCK_COLUMNS)
+
+
+def build_concurrency_sensitivity_labels(
+    sepsis_stays: pd.DataFrame,
+    lactates: pd.DataFrame,
+    vasopressors: pd.DataFrame,
+    *,
+    concurrency_hours: Iterable[float],
+    lactate_threshold: float = 2.0,
+    association_hours_before: float = 24,
+    association_hours_after: float = 24,
+) -> pd.DataFrame:
+    """Recompute long-format shock labels for prespecified concurrency windows."""
+    windows = [float(hours) for hours in concurrency_hours]
+    if not windows or len(set(windows)) != len(windows) or any(
+        hours < 0 for hours in windows
+    ):
+        raise ValueError("Sensitivity concurrency windows must be unique and non-negative")
+    frames = []
+    for hours in windows:
+        labels = build_septic_shock_labels(
+            sepsis_stays,
+            lactates,
+            vasopressors,
+            lactate_threshold=lactate_threshold,
+            concurrency_hours=hours,
+            association_hours_before=association_hours_before,
+            association_hours_after=association_hours_after,
+        )
+        labels.insert(0, "concurrency_hours", hours)
+        labels.insert(0, "sensitivity", f"concurrency_{hours:g}h")
+        frames.append(labels)
+    return pd.concat(frames, ignore_index=True)[SHOCK_SENSITIVITY_COLUMNS]

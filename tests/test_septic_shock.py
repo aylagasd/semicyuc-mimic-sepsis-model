@@ -2,8 +2,8 @@ import pandas as pd
 import pytest
 
 from mimic_sepsis.septic_shock import (
-    SHOCK_COLUMNS, build_septic_shock_labels, normalize_lactate,
-    normalize_vasopressor_intervals,
+    SHOCK_COLUMNS, build_concurrency_sensitivity_labels,
+    build_septic_shock_labels, normalize_lactate, normalize_vasopressor_intervals,
 )
 
 
@@ -111,6 +111,33 @@ def test_asymmetric_sepsis_association_windows_are_honoured():
     )
     assert not excluded.iloc[0].septic_shock
     assert included.iloc[0].septic_shock
+
+
+def test_concurrency_sensitivities_are_recomputed_in_long_format():
+    t0 = pd.Timestamp("2100-01-02")
+    sepsis = pd.DataFrame({"subject_id": [1], "hadm_id": [10], "stay_id": [100], "t0": [t0]})
+    labs = pd.DataFrame({
+        "subject_id": [1], "hadm_id": [10], "lactate_time": [t0],
+        "lactate_available_at": [t0], "lactate_mmol_l": [4.0],
+    })
+    vaso = pd.DataFrame({
+        "stay_id": [100], "starttime": [t0 + pd.Timedelta(hours=10)],
+        "endtime": [t0 + pd.Timedelta(hours=11)], "vasopressor": ["norepinephrine"],
+    })
+    result = build_concurrency_sensitivity_labels(
+        sepsis, labs, vaso, concurrency_hours=[3, 12]
+    )
+    assert result["sensitivity"].tolist() == ["concurrency_3h", "concurrency_12h"]
+    assert result["septic_shock"].tolist() == [False, True]
+    assert result.groupby("stay_id").size().tolist() == [2]
+
+
+def test_concurrency_sensitivity_windows_must_be_unique():
+    empty = pd.DataFrame()
+    with pytest.raises(ValueError, match="unique and non-negative"):
+        build_concurrency_sensitivity_labels(
+            empty, empty, empty, concurrency_hours=[3, 3]
+        )
 
 
 def test_empty_sepsis_preserves_shock_artifact_schema():
