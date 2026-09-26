@@ -13,6 +13,8 @@ PAIR_COLUMNS = [
     "culture_id", "culture_time", "pair_direction", "delta_hours", "t_si",
 ]
 
+CULTURE_COLUMNS = ["subject_id", "hadm_id", "culture_id", "culture_time"]
+
 
 def suspected_infection_parameters(
     config: Mapping[str, Any], *, sensitivity: str | None = None
@@ -40,7 +42,8 @@ def suspected_infection_parameters(
     evidence = definition.get("antibiotic_evidence")
     if evidence not in allowed_evidence:
         raise ValueError("Unsupported antimicrobial evidence")
-    if definition.get("culture_scope") != "blood_only":
+    culture_scope = definition.get("culture_scope")
+    if culture_scope not in {"blood_only", "all_specimens"}:
         raise ValueError("Unsupported culture scope")
     windows = {
         key: definition.get(key)
@@ -55,9 +58,53 @@ def suspected_infection_parameters(
         raise ValueError("Infection pairing windows must be non-negative numbers")
     return {
         "antibiotic_evidence": evidence,
-        "culture_scope": "blood_only",
+        "culture_scope": culture_scope,
         **windows,
     }
+
+
+def select_culture_collections(
+    microbiology: pd.DataFrame, *, culture_scope: str
+) -> pd.DataFrame:
+    """Return deduplicated specimen collections for an infection definition.
+
+    ``blood_only`` matches specimen descriptions containing ``BLOOD``;
+    ``all_specimens`` retains every timestamped microbiology specimen. A
+    specimen represented by multiple organism rows remains one collection.
+    """
+    required = {
+        "subject_id", "hadm_id", "micro_specimen_id", "charttime",
+        "chartdate", "spec_type_desc",
+    }
+    missing = sorted(required - set(microbiology.columns))
+    if missing:
+        raise ValueError(
+            "microbiology is missing columns: " + ", ".join(missing)
+        )
+    if culture_scope not in {"blood_only", "all_specimens"}:
+        raise ValueError(f"Unsupported culture scope: {culture_scope}")
+
+    selected = microbiology.copy()
+    selected["culture_time"] = pd.to_datetime(
+        selected["charttime"], errors="coerce"
+    ).fillna(pd.to_datetime(selected["chartdate"], errors="coerce"))
+    if culture_scope == "blood_only":
+        selected = selected.loc[
+            selected["spec_type_desc"].fillna("").str.contains(
+                "BLOOD", case=False
+            )
+        ]
+    return (
+        selected.dropna(
+            subset=["subject_id", "hadm_id", "micro_specimen_id", "culture_time"]
+        )
+        .sort_values("culture_time")
+        .drop_duplicates(["subject_id", "hadm_id", "micro_specimen_id"])
+        [["subject_id", "hadm_id", "micro_specimen_id", "culture_time"]]
+        .rename(columns={"micro_specimen_id": "culture_id"})
+        .loc[:, CULTURE_COLUMNS]
+        .reset_index(drop=True)
+    )
 
 
 def pair_antibiotics_and_cultures(

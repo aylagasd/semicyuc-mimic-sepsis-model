@@ -28,7 +28,8 @@ from mimic_sepsis.code_identity import detect_code_version
 from mimic_sepsis.feature_sources import normalize_lab_feature_events, normalize_vital_events
 from mimic_sepsis.features import build_numeric_feature_matrix
 from mimic_sepsis.infection import (
-    pair_antibiotics_and_cultures, suspected_infection_parameters,
+    pair_antibiotics_and_cultures, select_culture_collections,
+    suspected_infection_parameters,
 )
 from mimic_sepsis.landmarks import build_multiple_horizons
 from mimic_sepsis.sepsis_labels import (
@@ -292,19 +293,9 @@ def build_label_stage(
         evidence=primary_infection["antibiotic_evidence"],
     )
 
-    microbiology = sources["microbiologyevents"].copy()
-    microbiology["culture_time"] = pd.to_datetime(
-        microbiology["charttime"], errors="coerce"
-    ).fillna(pd.to_datetime(microbiology["chartdate"], errors="coerce"))
-    cultures = (
-        microbiology.loc[
-            microbiology["spec_type_desc"].fillna("").str.contains("BLOOD", case=False)
-        ]
-        .dropna(subset=["subject_id", "hadm_id", "micro_specimen_id", "culture_time"])
-        .sort_values("culture_time")
-        .drop_duplicates(["subject_id", "hadm_id", "micro_specimen_id"])
-        [["subject_id", "hadm_id", "micro_specimen_id", "culture_time"]]
-        .rename(columns={"micro_specimen_id": "culture_id"})
+    microbiology = sources["microbiologyevents"]
+    cultures = select_culture_collections(
+        microbiology, culture_scope=primary_infection["culture_scope"]
     )
     pairs = pair_antibiotics_and_cultures(
         antibiotics,
@@ -334,9 +325,12 @@ def build_label_stage(
         variant_antibiotics = select_antimicrobial_starts(
             classified, confirmed, evidence=definition["antibiotic_evidence"]
         )
+        variant_cultures = select_culture_collections(
+            microbiology, culture_scope=definition["culture_scope"]
+        )
         variant_pairs = pair_antibiotics_and_cultures(
             variant_antibiotics,
-            cultures,
+            variant_cultures,
             antibiotic_first_hours=definition["antibiotic_first_hours"],
             culture_first_hours=definition["culture_first_hours"],
         )

@@ -222,6 +222,10 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
         code_version="test", resume=False,
     )
     store = cli.ArtifactStore(run_root / "40_labels")
+    sensitivity_artifacts = {
+        "infection_sensitivity_pairs", "infection_sensitivity_episodes",
+        "infection_sensitivity_stays",
+    }
     for name in (
         "suspected_infection_pairs", "sepsis_episodes", "sepsis_stays",
         "sepsis_episodes_complete_sofa", "sepsis_stays_complete_sofa",
@@ -229,7 +233,12 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
         "infection_sensitivity_pairs", "infection_sensitivity_episodes",
         "infection_sensitivity_stays",
     ):
-        assert store.validate(name, expected_config=config).rows == 1
+        expected_rows = (
+            len(config["suspected_infection"]["sensitivities"])
+            if name in sensitivity_artifacts
+            else 1
+        )
+        assert store.validate(name, expected_config=config).rows == expected_rows
 
 
 def test_label_stage_excludes_infection_sources_outside_cohort(tmp_path, monkeypatch):

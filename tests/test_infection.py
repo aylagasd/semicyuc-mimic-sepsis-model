@@ -2,7 +2,8 @@ import pandas as pd
 import pytest
 
 from mimic_sepsis.infection import (
-    pair_antibiotics_and_cultures, suspected_infection_parameters,
+    pair_antibiotics_and_cultures, select_culture_collections,
+    suspected_infection_parameters,
 )
 
 
@@ -79,3 +80,36 @@ def test_versioned_infection_parameters_separate_primary_and_sensitivity():
     )["antibiotic_evidence"] == "qualifying_prescription_start"
     with pytest.raises(ValueError, match="Unknown suspected-infection sensitivity"):
         suspected_infection_parameters(config, sensitivity="unplanned")
+
+
+def test_culture_scope_expands_specimens_and_deduplicates_collection():
+    microbiology = pd.DataFrame({
+        "subject_id": [1, 1, 1],
+        "hadm_id": [10, 10, 10],
+        "micro_specimen_id": [100, 100, 200],
+        "charttime": ["2100-01-01 01:00", "2100-01-01 01:00", None],
+        "chartdate": ["2100-01-01", "2100-01-01", "2100-01-02"],
+        "spec_type_desc": ["BLOOD CULTURE", "BLOOD CULTURE", "URINE"],
+    })
+
+    blood = select_culture_collections(
+        microbiology, culture_scope="blood_only"
+    )
+    expanded = select_culture_collections(
+        microbiology, culture_scope="all_specimens"
+    )
+
+    assert blood["culture_id"].tolist() == [100]
+    assert expanded["culture_id"].tolist() == [100, 200]
+    assert expanded.loc[1, "culture_time"] == pd.Timestamp("2100-01-02")
+
+
+def test_culture_selection_rejects_unknown_scope_and_incomplete_schema():
+    with pytest.raises(ValueError, match="missing columns"):
+        select_culture_collections(pd.DataFrame(), culture_scope="blood_only")
+    incomplete = pd.DataFrame(columns=[
+        "subject_id", "hadm_id", "micro_specimen_id", "charttime",
+        "chartdate", "spec_type_desc",
+    ])
+    with pytest.raises(ValueError, match="Unsupported culture scope"):
+        select_culture_collections(incomplete, culture_scope="respiratory_only")

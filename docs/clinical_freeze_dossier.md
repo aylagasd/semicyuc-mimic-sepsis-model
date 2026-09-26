@@ -26,8 +26,9 @@ La comparación específica de políticas de cohorte D002 se genera con
 El paquete estático para revisar todas las reglas de D004 se genera con
 `scripts/audit_antimicrobial_rules.py` y se describe en
 [`antimicrobial_rule_review.md`](antimicrobial_rule_review.md).
-El alcance ejecutable y los campos todavía pendientes de las sensibilidades
-D010 se fijan en
+El alcance ejecutable de las sensibilidades D004 se fija en
+[`suspected_infection_sensitivity_contract.md`](suspected_infection_sensitivity_contract.md).
+Los campos todavía pendientes de las sensibilidades D010 se fijan en
 [`septic_shock_sensitivity_contract.md`](septic_shock_sensitivity_contract.md).
 
 ## 2. Propuestas que requieren firma
@@ -35,7 +36,7 @@ D010 se fijan en
 | ID | Propuesta primaria para aprobar | Sensibilidades preespecificadas | Revisor mínimo | Estado |
 |---|---|---|---|---|
 | D002 | Primera estancia UCI elegible por ingreso hospitalario. Mantiene episodios agudos distintos de un mismo paciente; toda partición e inferencia sigue agrupada por `subject_id`. | Primera estancia por paciente; todas las estancias elegibles. Cada variante reconstruye el pipeline completo. | Intensivista + metodología | pendiente de firma |
-| D004 | Antimicrobiano sistémico según lista versionada, confirmado por primera administración EMAR; cultivo de sangre; ventanas 24/72 h. | Prescripción sin EMAR; cultivos expandidos; variación de ventanas; exclusión perioperatoria. | Infecciosas/farmacia + intensivista | pendiente de revisión de lista |
+| D004 | Antimicrobiano sistémico según lista versionada, confirmado por primera administración EMAR; cultivo de sangre; ventanas 24/72 h. | Prescripción sin EMAR y cualquier espécimen ya materializados; variación de ventanas y exclusión perioperatoria pendientes de preespecificación. | Infecciosas/farmacia + intensivista | pendiente de revisión de lista y variantes |
 | D010 | Denominar el resultado **proxy EHR de shock séptico**, no shock clínico completo: Sepsis-3 + vasopresor + lactato >2 mmol/L concurrentes ±6 h y asociados ±24 h a `t0`. No afirmar resucitación adecuada. | Ventanas 3/12 h; MAP <65 previa; fluido documentado; lista restrictiva de vasopresores. | Intensivista + metodología | pendiente de firma |
 | D011 | No excluir del primario mediante un umbral de cobertura elegido con el demo. Conservar missingness y cobertura como auditoría; exigir baseline observado y/o ventana aguda completa en sensibilidades. | Baseline observado; extremos agudos cubiertos; seis componentes completos; análisis por carga de missingness. | Intensivista + estadística | pendiente de firma |
 | D014 | Diez dominios fisiológicos iniciales, sin SOFA, vasopresores, antibióticos ni cultivos en el modelo primario. Laboratorios disponibles en `storetime`. Congelar transformaciones y grados de libertad después de contar eventos en development y antes de ajustar. | Baseline de cinco resúmenes; SOFA explícitamente secundario; modelos por carga de missingness. | Intensivista + estadística | pendiente de complejidad final |

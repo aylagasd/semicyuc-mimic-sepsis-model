@@ -8,6 +8,12 @@
   },
   "schema_version": 1,
   "sensitivities": {
+    "all_specimens": {
+      "antibiotic_evidence": "first_qualifying_emar_administration",
+      "antibiotic_first_hours": 24,
+      "culture_first_hours": 72,
+      "culture_scope": "all_specimens"
+    },
     "prescription_start": {
       "antibiotic_evidence": "qualifying_prescription_start",
       "antibiotic_first_hours": 24,
