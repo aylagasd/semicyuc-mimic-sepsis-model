@@ -38,3 +38,10 @@ La sensibilidad `prescription_start` definida en
 `config/suspected_infection.json` usa las mismas reglas sistémicas y ventanas,
 pero toma `prescription_time` sin exigir confirmación EMAR. Se materializa por
 separado y no modifica la definición primaria.
+
+La sensibilidad independiente `all_specimens` conserva administración EMAR y
+ventanas, pero admite cualquier colección de `microbiologyevents`. La revisión
+debe identificar especímenes de vigilancia, contaminantes probables o fuentes
+de baja especificidad antes de decidir si esta variante es interpretable. El
+contrato completo se encuentra en
+`docs/suspected_infection_sensitivity_contract.md`.

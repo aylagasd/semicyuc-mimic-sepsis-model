@@ -33,9 +33,9 @@ Suspected infection is an antibiotic–culture pair, adapted from the Sepsis-3 e
 
 The suspected-infection time `t_si` is the earlier timestamp in the qualifying pair. If several pairs qualify, use the earliest pair that also satisfies the organ-dysfunction rule. Retain all candidate pairs in an audit table.
 
-Antimicrobial administrations should be derived from medication administration/order tables appropriate to the installed MIMIC-IV version (for example `emar`/`emar_detail` and prescriptions), using a version-controlled whitelist of systemic antibacterials and antifungals. Topical, ophthalmic, otic, prophylaxis-only and non-systemic routes are excluded where route is known. A primary sensitivity analysis requires evidence of administration rather than prescription alone.
+Antimicrobial administrations should be derived from medication administration/order tables appropriate to the installed MIMIC-IV version (for example `emar`/`emar_detail` and prescriptions), using a version-controlled whitelist of systemic antibacterials and antifungals. Topical, ophthalmic, otic, prophylaxis-only and non-systemic routes are excluded where route is known. La definición primaria exige la primera administración EMAR confirmada; `prescription_start` es una sensibilidad menos específica que no exige dicha confirmación.
 
-Qualifying cultures come from `microbiologyevents` and use specimen collection (`charttime`) where available. Blood cultures are the primary definition; a sensitivity analysis includes urine, respiratory, CSF and other normally sterile-site cultures. Culture positivity is not required because it is future information and would select only microbiologically confirmed infection.
+Qualifying cultures come from `microbiologyevents` and use specimen collection (`charttime`) where available. Blood cultures are the primary definition. La sensibilidad implementada `all_specimens` incluye cualquier espécimen microbiológico; esta opción deliberadamente amplia deberá revisarse por contaminación, vigilancia y baja especificidad antes de congelar D004. Culture positivity is not required because it is future information and would select only microbiologically confirmed infection.
 
 ### 4.2 Ambiguities to record
 

@@ -289,6 +289,11 @@ python scripts/audit_phenotype_freeze.py data/derived/sofa/<run_id>
 El informe ayuda a revisar las opciones pero no cambia por sí mismo el estado
 del protocolo.
 
+Las dos sensibilidades D004 actualmente materializadas —inicio de prescripción
+y cualquier espécimen microbiológico— y las variantes aún bloqueadas se
+describen en
+[`suspected_infection_sensitivity_contract.md`](suspected_infection_sensitivity_contract.md).
+
 La política de cohorte se revisa por separado, reconstruyendo las tres opciones
 desde las tablas fuente mediante `scripts/audit_cohort_policy_freeze.py`; véase
 [`cohort_policy_evidence.md`](cohort_policy_evidence.md).
