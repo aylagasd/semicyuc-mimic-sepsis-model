@@ -196,6 +196,9 @@ informe no congela decisiones automáticamente.
 La política de estancias D002 tiene un informe protegido complementario,
 `scripts/audit_cohort_policy_freeze.py`, documentado en
 [`docs/cohort_policy_evidence.md`](docs/cohort_policy_evidence.md).
+La revisión estática de la lista antimicrobiana D004 se prepara con
+`scripts/audit_antimicrobial_rules.py` y se documenta en
+[`docs/antimicrobial_rule_review.md`](docs/antimicrobial_rule_review.md).
 
 Para validar el módulo sin una base MIMIC-IV real:
 

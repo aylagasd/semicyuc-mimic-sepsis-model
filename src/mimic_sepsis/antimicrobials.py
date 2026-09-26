@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pandas as pd
@@ -17,10 +18,54 @@ def load_antimicrobial_rules(path: Path) -> pd.DataFrame:
     rules = pd.read_csv(path, dtype="string")
     if list(rules.columns) != ["pattern", "group"] or rules.empty:
         raise ValueError("Rules must contain non-empty pattern and group columns")
-    if rules.isna().any().any() or rules["pattern"].duplicated().any():
-        raise ValueError("Rules contain missing or duplicate patterns")
-    rules["pattern"] = rules["pattern"].str.lower()
+    if rules.isna().any().any():
+        raise ValueError("Rules contain missing values")
+    rules["pattern"] = rules["pattern"].str.strip().str.lower()
+    rules["group"] = rules["group"].str.strip().str.lower()
+    if rules.eq("").any().any():
+        raise ValueError("Rules contain blank patterns or groups")
+    if rules["pattern"].duplicated().any():
+        raise ValueError("Rules contain duplicate normalized patterns")
     return rules
+
+
+def audit_antimicrobial_rules(path: Path) -> dict:
+    """Build an identifier-free review packet for the ordered rule list.
+
+    Substring overlaps are not rejected automatically: their clinical intent must
+    be reviewed because the first matching rule wins during classification.
+    """
+    rules = load_antimicrobial_rules(path)
+    overlaps = []
+    for left_index, left in rules.iterrows():
+        for right_index, right in rules.iloc[left_index + 1 :].iterrows():
+            if left["pattern"] in right["pattern"] or right["pattern"] in left["pattern"]:
+                overlaps.append(
+                    {
+                        "first_position": int(left_index) + 1,
+                        "first_pattern": left["pattern"],
+                        "second_position": int(right_index) + 1,
+                        "second_pattern": right["pattern"],
+                    }
+                )
+    group_counts = (
+        rules.groupby("group", sort=True).size().rename("rule_count").astype(int).to_dict()
+    )
+    return {
+        "schema_version": 1,
+        "rules_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "rule_count": int(len(rules)),
+        "group_count": int(rules["group"].nunique()),
+        "group_rule_counts": group_counts,
+        "ordered_substring_overlaps": overlaps,
+        "excluded_route_codes": sorted(EXCLUDED_ROUTE_CODES),
+        "excluded_drug_terms": list(EXCLUDED_DRUG_TERMS),
+        "qualifying_emar_events": list(ADMINISTRATION_EVENTS),
+        "rules": rules.reset_index(drop=True).assign(position=lambda frame: frame.index + 1)[
+            ["position", "pattern", "group"]
+        ].to_dict(orient="records"),
+        "clinical_review_required": True,
+    }
 
 
 def classify_prescriptions(
@@ -73,10 +118,8 @@ def confirm_administrations(
         if missing:
             raise ValueError(f"{name} is missing columns: {', '.join(missing)}")
     administrations = emar.copy()
-    event = administrations["event_txt"].fillna("").str.lower()
-    qualifying = event.apply(
-        lambda value: any(marker in value for marker in ADMINISTRATION_EVENTS)
-    )
+    event = administrations["event_txt"].fillna("").astype("string").str.strip().str.lower()
+    qualifying = event.isin(ADMINISTRATION_EVENTS)
     administrations = administrations.loc[qualifying].copy()
     administrations["administration_time"] = pd.to_datetime(
         administrations["charttime"], errors="coerce"

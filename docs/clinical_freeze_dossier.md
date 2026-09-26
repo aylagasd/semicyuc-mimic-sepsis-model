@@ -23,6 +23,9 @@ El comando no modifica estados ni sustituye ninguna firma.
 La comparación específica de políticas de cohorte D002 se genera con
 `scripts/audit_cohort_policy_freeze.py` y se describe en
 [`cohort_policy_evidence.md`](cohort_policy_evidence.md).
+El paquete estático para revisar todas las reglas de D004 se genera con
+`scripts/audit_antimicrobial_rules.py` y se describe en
+[`antimicrobial_rule_review.md`](antimicrobial_rule_review.md).
 
 ## 2. Propuestas que requieren firma
 
@@ -42,6 +45,8 @@ La comparación específica de políticas de cohorte D002 se genera con
 ### Antimicrobianos y cultivos
 
 - revisar cada regla de `config/antimicrobial_rules.csv`, grupo, vía y forma;
+- conservar el hash del paquete D004 firmado y resolver cualquier solapamiento
+  de subcadenas en el orden de clasificación;
 - identificar profilaxis quirúrgica y tratamientos no sistémicos que aún entren;
 - confirmar jerarquía EMAR/prescripción y significado de eventos administrados;
 - aprobar sangre como fuente primaria y la lista de especímenes de sensibilidad;
