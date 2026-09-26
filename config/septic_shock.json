@@ -4,8 +4,9 @@
   "lactate_threshold_mmol_l": 2.0,
   "phenotype": "sepsis3_septic_shock_primary_proxy",
   "require_adequate_volume_resuscitation": false,
-  "schema_version": 1,
+  "schema_version": 2,
   "sepsis_association_hours_after": 24,
   "sepsis_association_hours_before": 24,
+  "sensitivity_concurrency_hours": [3, 12],
   "vasopressors": ["norepinephrine", "epinephrine", "dopamine", "phenylephrine", "vasopressin"]
 }

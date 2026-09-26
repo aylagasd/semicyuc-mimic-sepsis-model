@@ -14,7 +14,11 @@ from typing import Any, Mapping
 import pandas as pd
 
 from .artifacts import ArtifactStore, ArtifactValidationError
-from .chunked_labels import COMPLETE_SOFA_ARTIFACTS, PRIMARY_LABEL_ARTIFACTS
+from .chunked_labels import (
+    COMPLETE_SOFA_ARTIFACTS,
+    PRIMARY_LABEL_ARTIFACTS,
+    SHOCK_SENSITIVITY_ARTIFACTS,
+)
 from .chunked_sofa import (
     partitioned_dataset_sha256,
     read_partitioned_dataset,
@@ -29,7 +33,9 @@ from .phenotype_audit import (
     pair_multiplicity,
     phenotype_summary,
     shock_proxy_summary,
+    shock_concurrency_sensitivity_summary,
     sofa_completeness_summary,
+    unavailable_shock_concurrency_sensitivities,
     unavailable_complete_sofa_sensitivity,
 )
 from .protected_evidence import (
@@ -49,6 +55,7 @@ REPORT_TABLES = (
     "complete_sofa_sensitivities",
     "sofa_completeness_at_t0",
     "shock_proxy",
+    "shock_concurrency_sensitivities",
     "decision_evidence",
 )
 FORBIDDEN_REPORT_COLUMNS = frozenset({
@@ -94,9 +101,13 @@ def load_validated_phenotype_source(path: str | Path) -> ValidatedPhenotypeSourc
             raise ArtifactValidationError(
                 "Complete-SOFA sensitivity artifacts are incomplete"
             )
+        shock_sensitivity_present = all(
+            (demo / f"{name}.manifest.json").is_file()
+            for name in SHOCK_SENSITIVITY_ARTIFACTS
+        )
         names = PRIMARY_LABEL_ARTIFACTS + (
             COMPLETE_SOFA_ARTIFACTS if all(optional_present) else ()
-        )
+        ) + (SHOCK_SENSITIVITY_ARTIFACTS if shock_sensitivity_present else ())
         manifests = {name: store.validate(name) for name in names}
         data_version = _same(
             [item.data_version for item in manifests.values()], "data_version"
@@ -128,9 +139,13 @@ def load_validated_phenotype_source(path: str | Path) -> ValidatedPhenotypeSourc
             raise ArtifactValidationError(
                 "Complete-SOFA sensitivity artifacts are incomplete"
             )
+        shock_sensitivity_present = all(
+            (root / name / f"{name}.dataset.json").is_file()
+            for name in SHOCK_SENSITIVITY_ARTIFACTS
+        )
         names = PRIMARY_LABEL_ARTIFACTS + (
             COMPLETE_SOFA_ARTIFACTS if all(optional_present) else ()
-        )
+        ) + (SHOCK_SENSITIVITY_ARTIFACTS if shock_sensitivity_present else ())
         manifests = {
             name: validate_partitioned_dataset(root / name, name)
             for name in names
@@ -211,6 +226,16 @@ def _validate_label_relationships(source: ValidatedPhenotypeSource) -> None:
         _validate_stay_selection(
             complete_episodes, complete_stays, "sepsis_stays_complete_sofa"
         )
+    shock_sensitivities = source.tables.get(
+        "septic_shock_concurrency_sensitivities"
+    )
+    if shock_sensitivities is not None:
+        try:
+            shock_concurrency_sensitivity_summary(shock, shock_sensitivities)
+        except ValueError as error:
+            raise ArtifactValidationError(
+                "Shock concurrency sensitivity artifact is inconsistent"
+            ) from error
 
 
 def build_phenotype_evidence(
@@ -226,8 +251,13 @@ def build_phenotype_evidence(
     shock_stays = source.tables["septic_shock_stays"]
     complete_episodes = source.tables.get("sepsis_episodes_complete_sofa")
     complete_available = complete_episodes is not None
+    shock_sensitivities = source.tables.get(
+        "septic_shock_concurrency_sensitivities"
+    )
+    shock_sensitivity_available = shock_sensitivities is not None
     decisions = decision_evidence_summary(
-        complete_sofa_available=complete_available
+        complete_sofa_available=complete_available,
+        shock_sensitivity_available=shock_sensitivity_available,
     ).copy()
     decisions["current_status"] = decisions["decision_id"].map(protocol_status)
     if decisions["current_status"].isna().any():
@@ -251,12 +281,19 @@ def build_phenotype_evidence(
         ),
         "sofa_completeness_at_t0": sofa_completeness_summary(sepsis_stays),
         "shock_proxy": shock_proxy_summary(shock_stays),
+        "shock_concurrency_sensitivities": (
+            shock_concurrency_sensitivity_summary(
+                shock_stays, shock_sensitivities
+            )
+            if shock_sensitivities is not None
+            else unavailable_shock_concurrency_sensitivities()
+        ),
         "decision_evidence": decisions,
     }
     if tuple(frames) != REPORT_TABLES:
         raise RuntimeError("Internal phenotype report table order changed")
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "purpose": "protocol_freeze_review_only",
         "distribution_class": "protected_aggregate_unsuppressed_counts",
         "clinical_status_mutated": False,
@@ -269,7 +306,10 @@ def build_phenotype_evidence(
         "definitions": {
             "D002": "not comparable within one cohort-policy run",
             "D004": "first qualifying EMAR administration plus blood culture",
-            "D010": "EHR shock proxy; adequate fluids are not inferred",
+            "D010": (
+                "EHR shock proxy; adequate fluids are not inferred; concurrency "
+                "sensitivities are independently recomputed when available"
+            ),
             "D011": (
                 "coverage sensitivities, descriptive primary-t0 missingness and "
                 "an independently recomputed sofa_complete sensitivity when its "

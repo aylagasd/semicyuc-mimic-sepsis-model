@@ -33,6 +33,7 @@ from mimic_sepsis.sepsis_labels import (
     sepsis_episode_parameters,
 )
 from mimic_sepsis.septic_shock import (
+    build_concurrency_sensitivity_labels,
     build_septic_shock_labels,
     normalize_lactate,
     normalize_vasopressor_intervals,
@@ -45,7 +46,7 @@ from mimic_sepsis.sofa_hourly import build_icustay_hourly_grid
 DATA_VERSION = "2.2"
 MIMIC_CODE_VERSION = "v2.4.0"
 MIMIC_CODE_COMMIT = "570ef01"
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 RAW_TABLES = {
     "icustays": "icu/icustays.csv.gz",
     "chartevents": "icu/chartevents.csv.gz",
@@ -280,7 +281,7 @@ def build_label_stage(
     names = (
         "suspected_infection_pairs", "sepsis_episodes", "sepsis_stays",
         "sepsis_episodes_complete_sofa", "sepsis_stays_complete_sofa",
-        "septic_shock_stays",
+        "septic_shock_stays", "septic_shock_concurrency_sensitivities",
     )
     if all(_valid(label_store, name, config, resume=resume) for name in names):
         return
@@ -350,9 +351,18 @@ def build_label_stage(
         association_hours_before=shock_config["sepsis_association_hours_before"],
         association_hours_after=shock_config["sepsis_association_hours_after"],
     )
+    shock_sensitivities = build_concurrency_sensitivity_labels(
+        sepsis_stays,
+        lactates,
+        vasopressors,
+        concurrency_hours=shock_config["sensitivity_concurrency_hours"],
+        lactate_threshold=shock_config["lactate_threshold_mmol_l"],
+        association_hours_before=shock_config["sepsis_association_hours_before"],
+        association_hours_after=shock_config["sepsis_association_hours_after"],
+    )
     frames = (
         pairs, episodes, sepsis_stays, complete_episodes, complete_stays,
-        shock_stays,
+        shock_stays, shock_sensitivities,
     )
     for name, frame in zip(names, frames, strict=True):
         label_store.write_dataframe(

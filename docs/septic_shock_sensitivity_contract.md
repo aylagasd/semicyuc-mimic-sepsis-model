@@ -19,8 +19,8 @@ filtrando solo los positivos primarios.
 
 | Variante | Cambio único respecto al primario | Estado técnico | Decisión pendiente |
 |---|---|---|---|
-| concurrencia 3 h | tolerancia ±3 h | motor parametrizado y probado | firma clínica |
-| concurrencia 12 h | tolerancia ±12 h | motor parametrizado y probado | firma clínica |
+| concurrencia 3 h | tolerancia ±3 h | artefacto versionado en ambos pipelines | firma clínica |
+| concurrencia 12 h | tolerancia ±12 h | artefacto versionado en ambos pipelines | firma clínica |
 | MAP <65 | exige MAP documentada antes o durante la concurrencia | fuente aún no integrada | ventana y resumen de MAP |
 | fluidos documentados | exige evidencia de cristaloide previa | fuente aún no integrada | fluidos, volumen y ventana |
 | vasopresores restrictivos | subconjunto explícito de la lista primaria | motor parametrizado y probado | composición del subconjunto |

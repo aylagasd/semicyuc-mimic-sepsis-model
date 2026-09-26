@@ -4,7 +4,7 @@
 
 La etapa `40_labels/` se publica solo después de validar `00_cohort/` y
 `30_score/`, y comparte exactamente el mismo `run_id` y hash de configuración.
-Contiene seis tablas protegidas:
+Contiene siete tablas protegidas:
 
 | Artefacto | Granularidad | Clave lógica |
 |---|---|---|
@@ -14,8 +14,9 @@ Contiene seis tablas protegidas:
 | `sepsis_episodes_complete_sofa` | sensibilidad recalculada con `sofa_complete` | clave del par + `stay_id` cuando existe |
 | `sepsis_stays_complete_sofa` | primer episodio de la sensibilidad completa por estancia | `stay_id` |
 | `septic_shock_stays` | proxy de shock evaluado en cada estancia Sepsis-3 | `stay_id` |
+| `septic_shock_concurrency_sensitivities` | recálculo largo del proxy para cada ventana preespecificada | `sensitivity`, `stay_id` |
 
-Los seis artefactos son datos a nivel de paciente: permanecen bajo `data/`, no
+Los siete artefactos son datos a nivel de paciente: permanecen bajo `data/`, no
 se versionan y no se muestran como filas en notebooks. Sus manifiestos incluyen
 checksum, esquema, versión de datos, versión de código y hash de la definición
 de `config/sepsis3.json`. Los agregados deben declarar denominador y distinguir
@@ -25,6 +26,10 @@ La sensibilidad completa no filtra el `t0` primario. Repite baseline, ventana
 aguda y primer cruce usando únicamente horas cuyo `sofa_complete` está
 disponible. Sus artefactos separados impiden mezclarla con la etiqueta primaria
 basada en `sofa_total`.
+
+Las sensibilidades de concurrencia tampoco filtran la etiqueta primaria:
+reconstruyen cada etiqueta desde los lactatos e intervalos de vasopresores y
+exigen exactamente una fila por estancia Sepsis-3 y variante.
 
 ## Propósito
 

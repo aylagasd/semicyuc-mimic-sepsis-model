@@ -30,7 +30,7 @@ python scripts/audit_phenotype_freeze.py \
 ```
 
 El lector detecta ambos layouts, valida el checksum y la coherencia de versión
-y configuración de los cuatro artefactos de etiquetas y falla si falta alguno.
+y configuración de los artefactos primarios de etiquetas y falla si falta alguno.
 La salida por defecto es
 `<label_run>/audit/phenotype_freeze_evidence.json`. La terminal solo muestra
 versión, layout y SHA-256 del informe; los recuentos permanecen en el archivo
@@ -49,6 +49,7 @@ protocolo produce el mismo `report_sha256`, aunque cambie la hora de creación.
 | `complete_sofa_sensitivities` | filas y estancias recalculadas con `sofa_complete` | Caso completo solo y combinado con baseline observado/cobertura física. |
 | `sofa_completeness_at_t0` | primer episodio Sepsis-3 por estancia | Componentes ausentes en el `t0` primario. |
 | `shock_proxy` | estancias Sepsis-3 | Proxy positivo/negativo y verificación de fluidos. |
+| `shock_concurrency_sensitivities` | estancias Sepsis-3 por variante | Positivos, cambio absoluto y concordancia frente a la regla primaria. |
 | `decision_evidence` | decisiones D002/D004/D010/D011 | Estado actual y evidencia que todavía falta. |
 
 Los pares, las filas par–estancia y las estancias no son intercambiables. Cada
@@ -76,9 +77,12 @@ infecciosas/farmacia e intensivos.
 ### D010 — proxy de shock séptico
 
 Se auditan estancias positivas y negativas y se hace visible que la resucitación
-adecuada con fluidos no se infiere. Estos agregados no convierten el proxy EHR
-en diagnóstico clínico de shock ni sustituyen la firma de su nombre, ventanas y
-sensibilidades.
+adecuada con fluidos no se infiere. Las ventanas de concurrencia de 3 y 12 horas
+se recalculan desde las fuentes y se comparan con la primaria de 6 horas; no se
+derivan filtrando sus positivos. El informe verifica que cada variante evalúe
+exactamente el mismo conjunto de estancias una sola vez. Estos agregados no
+convierten el proxy EHR en diagnóstico clínico de shock ni sustituyen la firma
+de su nombre, ventanas y sensibilidades de MAP/fluidos/lista restrictiva.
 
 ### D011 — cobertura y missingness SOFA
 

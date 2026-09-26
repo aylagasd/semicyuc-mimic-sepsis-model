@@ -131,6 +131,38 @@ def test_evidence_uses_independently_recomputed_complete_sofa_artifacts():
     assert "complete_sofa" in d011["evidence_in_report"]
 
 
+def test_evidence_uses_recomputed_shock_concurrency_artifact():
+    source = _source()
+    primary = source.tables["septic_shock_stays"]
+    sensitivity = pd.concat([
+        primary.assign(sensitivity="concurrency_3h", concurrency_hours=3),
+        primary.assign(sensitivity="concurrency_12h", concurrency_hours=12),
+    ], ignore_index=True)
+    source = ValidatedPhenotypeSource(
+        layout=source.layout,
+        data_version=source.data_version,
+        config_sha256=source.config_sha256,
+        artifact_sha256={
+            **source.artifact_sha256,
+            "septic_shock_concurrency_sensitivities": "7" * 64,
+        },
+        tables={
+            **source.tables,
+            "septic_shock_concurrency_sensitivities": sensitivity,
+        },
+    )
+    content = build_phenotype_evidence(source, protocol_status=STATUSES)
+    rows = content["tables"]["shock_concurrency_sensitivities"]
+    assert [row["sensitivity"] for row in rows] == [
+        "concurrency_3h", "concurrency_12h",
+    ]
+    d010 = next(
+        row for row in content["tables"]["decision_evidence"]
+        if row["decision_id"] == "D010"
+    )
+    assert d010["evidence_in_report"] == "quantitative_concurrency_sensitivities"
+
+
 def test_evidence_round_trip_is_content_bound_and_private(tmp_path):
     content = build_phenotype_evidence(_source(), protocol_status=STATUSES)
     path = tmp_path / "evidence.json"

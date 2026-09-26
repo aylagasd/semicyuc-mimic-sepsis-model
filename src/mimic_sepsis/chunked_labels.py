@@ -27,7 +27,8 @@ from .sepsis_labels import (
     sepsis_episode_parameters,
 )
 from .septic_shock import (
-    build_septic_shock_labels, normalize_lactate, normalize_vasopressor_intervals,
+    build_concurrency_sensitivity_labels, build_septic_shock_labels,
+    normalize_lactate, normalize_vasopressor_intervals,
 )
 
 
@@ -41,12 +42,16 @@ COMPLETE_SOFA_ARTIFACTS = (
     "sepsis_episodes_complete_sofa",
     "sepsis_stays_complete_sofa",
 )
+SHOCK_SENSITIVITY_ARTIFACTS = (
+    "septic_shock_concurrency_sensitivities",
+)
 LABEL_ARTIFACTS = (
     "suspected_infection_pairs",
     "sepsis_episodes",
     "sepsis_stays",
     *COMPLETE_SOFA_ARTIFACTS,
     "septic_shock_stays",
+    *SHOCK_SENSITIVITY_ARTIFACTS,
 )
 
 
@@ -86,7 +91,7 @@ class ChunkedLabelBuilder:
     ) -> dict[str, Any]:
         return {
             "backend": "partitioned-pandas-labels",
-            "chunked_label_schema_version": 4,
+            "chunked_label_schema_version": 5,
             "code_version": self.code_version,
             "duckdb_memory_limit": self.duckdb_memory_limit,
             "duckdb_threads": self.duckdb_threads,
@@ -265,11 +270,20 @@ class ChunkedLabelBuilder:
                     association_hours_before=shock_config["sepsis_association_hours_before"],
                     association_hours_after=shock_config["sepsis_association_hours_after"],
                 )
+                shock_sensitivities = build_concurrency_sensitivity_labels(
+                    sepsis_stays,
+                    lactates,
+                    vasopressors,
+                    concurrency_hours=shock_config["sensitivity_concurrency_hours"],
+                    lactate_threshold=shock_config["lactate_threshold_mmol_l"],
+                    association_hours_before=shock_config["sepsis_association_hours_before"],
+                    association_hours_after=shock_config["sepsis_association_hours_after"],
+                )
                 frames = dict(zip(
                     LABEL_ARTIFACTS,
                     (
                         pairs, episodes, sepsis_stays, complete_episodes,
-                        complete_stays, shock,
+                        complete_stays, shock, shock_sensitivities,
                     ),
                     strict=True,
                 ))

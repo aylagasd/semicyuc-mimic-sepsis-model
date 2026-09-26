@@ -198,6 +198,14 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
     )
     shock = pd.DataFrame({"stay_id": [100], "septic_shock": [False]})
     monkeypatch.setattr(cli, "build_septic_shock_labels", lambda *args, **kwargs: shock)
+    sensitivity = pd.DataFrame({
+        "sensitivity": ["concurrency_3h"], "stay_id": [100],
+        "septic_shock": [False],
+    })
+    monkeypatch.setattr(
+        cli, "build_concurrency_sensitivity_labels",
+        lambda *args, **kwargs: sensitivity,
+    )
 
     cli.build_label_stage(
         data_dir=tmp_path, run_root=run_root, config=config,
@@ -207,7 +215,7 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
     for name in (
         "suspected_infection_pairs", "sepsis_episodes", "sepsis_stays",
         "sepsis_episodes_complete_sofa", "sepsis_stays_complete_sofa",
-        "septic_shock_stays",
+        "septic_shock_stays", "septic_shock_concurrency_sensitivities",
     ):
         assert store.validate(name, expected_config=config).rows == 1
 

@@ -245,8 +245,79 @@ def shock_proxy_summary(shock_stays: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["metric", "count", "unit"])
 
 
+def shock_concurrency_sensitivity_summary(
+    shock_stays: pd.DataFrame,
+    sensitivities: pd.DataFrame,
+) -> pd.DataFrame:
+    """Compare recomputed concurrency-window labels with the primary proxy."""
+    _require(shock_stays, {"stay_id", "septic_shock"}, "shock_stays")
+    _require(
+        sensitivities,
+        {"sensitivity", "concurrency_hours", "stay_id", "septic_shock"},
+        "sensitivities",
+    )
+    if shock_stays["stay_id"].duplicated().any():
+        raise ValueError("shock_stays must contain at most one row per stay")
+    primary = shock_stays[["stay_id", "septic_shock"]].copy()
+    primary["septic_shock"] = primary["septic_shock"].fillna(False).astype(bool)
+    primary_positive = int(primary["septic_shock"].sum())
+    rows = []
+    for name, variant in sensitivities.groupby("sensitivity", sort=False):
+        if variant["stay_id"].duplicated().any() or set(variant["stay_id"]) != set(
+            primary["stay_id"]
+        ):
+            raise ValueError(
+                f"Shock sensitivity {name!r} does not evaluate every primary stay once"
+            )
+        hours = pd.to_numeric(variant["concurrency_hours"], errors="raise")
+        if hours.nunique() != 1:
+            raise ValueError(f"Shock sensitivity {name!r} has inconsistent windows")
+        comparison = primary.merge(
+            variant[["stay_id", "septic_shock"]],
+            on="stay_id",
+            how="inner",
+            suffixes=("_primary", "_sensitivity"),
+            validate="one_to_one",
+        )
+        sensitivity_positive = comparison["septic_shock_sensitivity"].fillna(
+            False
+        ).astype(bool)
+        agreement = comparison["septic_shock_primary"].eq(sensitivity_positive)
+        rows.append({
+            "sensitivity": str(name),
+            "concurrency_hours": float(hours.iloc[0]),
+            "evaluated_stays": len(comparison),
+            "shock_proxy_positive": int(sensitivity_positive.sum()),
+            "delta_positive_vs_primary": int(sensitivity_positive.sum())
+            - primary_positive,
+            "agreement_with_primary": int(agreement.sum()),
+            "percent_agreement": (
+                100 * float(agreement.mean()) if len(comparison) else None
+            ),
+            "available": True,
+        })
+    if not rows:
+        raise ValueError("Shock concurrency sensitivity artifact is empty")
+    return pd.DataFrame(rows)
+
+
+def unavailable_shock_concurrency_sensitivities() -> pd.DataFrame:
+    """Represent legacy runs that predate materialized D010 sensitivities."""
+    return pd.DataFrame([{
+        "sensitivity": "not_available",
+        "concurrency_hours": None,
+        "evaluated_stays": None,
+        "shock_proxy_positive": None,
+        "delta_positive_vs_primary": None,
+        "agreement_with_primary": None,
+        "percent_agreement": None,
+        "available": False,
+    }])
+
+
 def decision_evidence_summary(
-    *, complete_sofa_available: bool = False
+    *, complete_sofa_available: bool = False,
+    shock_sensitivity_available: bool = False,
 ) -> pd.DataFrame:
     """Declare what one primary phenotype run can and cannot resolve."""
     return pd.DataFrame([
@@ -268,10 +339,15 @@ def decision_evidence_summary(
         },
         {
             "decision_id": "D010",
-            "evidence_in_report": "descriptive_only",
+            "evidence_in_report": (
+                "quantitative_concurrency_sensitivities"
+                if shock_sensitivity_available
+                else "descriptive_only"
+            ),
             "remaining_requirement": (
-                "clinical acceptance of the EHR proxy and explicit absence of "
-                "verified adequate fluid resuscitation"
+                "clinical acceptance of the EHR proxy, explicit absence of "
+                "verified adequate fluid resuscitation, and decisions on MAP, "
+                "fluids and the restrictive vasopressor list"
             ),
         },
         {

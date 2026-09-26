@@ -8,6 +8,7 @@ from mimic_sepsis.phenotype_audit import (
     decision_evidence_summary,
     infection_timing_summary,
     pair_multiplicity,
+    shock_concurrency_sensitivity_summary,
     shock_proxy_summary,
     sofa_completeness_summary,
 )
@@ -119,11 +120,47 @@ def test_infection_and_shock_summaries_are_aggregate_and_denominated():
     assert shock.loc["adequate_fluids_not_verified", "count"] == 3
 
 
+def test_shock_concurrency_sensitivities_compare_exact_stay_sets():
+    primary = pd.DataFrame({
+        "stay_id": [1, 2, 3], "septic_shock": [True, False, False],
+    })
+    sensitivities = pd.DataFrame({
+        "sensitivity": ["concurrency_3h"] * 3 + ["concurrency_12h"] * 3,
+        "concurrency_hours": [3] * 3 + [12] * 3,
+        "stay_id": [1, 2, 3, 1, 2, 3],
+        "septic_shock": [False, False, False, True, True, False],
+    })
+    result = shock_concurrency_sensitivity_summary(
+        primary, sensitivities
+    ).set_index("sensitivity")
+    assert result.loc["concurrency_3h", "delta_positive_vs_primary"] == -1
+    assert result.loc["concurrency_12h", "delta_positive_vs_primary"] == 1
+    assert result.loc["concurrency_12h", "agreement_with_primary"] == 2
+
+
+def test_shock_sensitivity_rejects_incomplete_stay_sets():
+    primary = pd.DataFrame({"stay_id": [1, 2], "septic_shock": [False, False]})
+    sensitivity = pd.DataFrame({
+        "sensitivity": ["concurrency_3h"], "concurrency_hours": [3],
+        "stay_id": [1], "septic_shock": [False],
+    })
+    with pytest.raises(ValueError, match="every primary stay once"):
+        shock_concurrency_sensitivity_summary(primary, sensitivity)
+
+
 def test_decision_evidence_never_claims_automatic_freeze():
     result = decision_evidence_summary().set_index("decision_id")
     assert set(result.index) == {"D002", "D004", "D010", "D011"}
     assert result.loc["D002", "evidence_in_report"] == "not_comparative"
     assert result.loc["D011", "evidence_in_report"] == "quantitative_coverage_sensitivities"
+    assert result.loc["D010", "evidence_in_report"] == "descriptive_only"
+    with_sensitivity = decision_evidence_summary(
+        shock_sensitivity_available=True
+    ).set_index("decision_id")
+    assert (
+        with_sensitivity.loc["D010", "evidence_in_report"]
+        == "quantitative_concurrency_sensitivities"
+    )
 
 
 def test_audit_rejects_missing_required_columns():
