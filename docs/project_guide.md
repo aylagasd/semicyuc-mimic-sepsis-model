@@ -178,6 +178,8 @@ Los módulos principales son:
   y variables primarios, más preflight agregado para el perfil de 32 GiB.
 - `duckdb_runtime.py` y `resource_telemetry.py`: presupuesto uniforme de
   memoria/hilos/spill y medición agregada por etapa sin datos clínicos.
+- `resource_validation.py`: puerta reproducible de finalización, RSS y swap
+  contra el perfil de cómputo declarado.
 
 DuckDB se usa como motor SQL local fuera de memoria para reducir CSV,
 seleccionar las filas de cada lote, normalizar y enlazar fuentes de features,

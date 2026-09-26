@@ -74,9 +74,10 @@ perfil.
   Python conserva el agregador final `[L-W,L)`, vectorizado por estancia, para
   mantener el contrato ya probado.
 - Cada ejecución escribe `resource_report.json` bajo el directorio de salida.
-  Contiene solo tiempo, RSS, E/S, bytes, filas y partes agregados por etapa;
-  también persiste el tipo de excepción si una etapa falla, nunca el mensaje ni
-  filas clínicas. Puede cambiarse con `--resource-report`.
+  Contiene solo tiempo, RSS, swap del proceso, E/S, bytes, filas y partes
+  agregados por etapa; también persiste el tipo de excepción si una etapa
+  falla, nunca el mensaje ni filas clínicas. Puede cambiarse con
+  `--resource-report`.
 - Los artefactos vacíos conservan su esquema. Por ello reducir el lote a 50 o
   menos no falla cuando una parte carece de episodios de sepsis o shock.
 - Todos los ficheros y manifiestos se validan antes de leer la proyección; la
@@ -118,6 +119,19 @@ vigilará además a nivel del sistema. Se acepta el perfil si el RSS permanece
 por debajo de 24 GiB, no hay swapping sostenido, los manifiestos validan y la
 equivalencia/invariantes clínicos pasan. Si no se cumple, se reduce el lote y
 se reanuda; aumentar paralelismo no es una corrección válida para falta de RAM.
+
+El criterio ejecutable se comprueba inmediatamente después de la corrida:
+
+```bash
+python scripts/validate_pipeline_resources.py \
+  /ruta/derivados/full_pipeline/resource_report.json \
+  --compute-profile config/compute_32gb.json
+```
+
+Devuelve código 0 solo si terminaron en orden las cuatro etapas, el hash y los
+parámetros coinciden con el perfil, el pico RSS no supera 24 GiB, el kernel pudo
+informar memoria y no se observó swap del proceso. El espacio libre y el swap
+global del sistema continúan siendo controles operativos adicionales.
 
 El test continúa sin materializarse hasta completar las firmas y el congelado
 del modelo descritos en la guía de despliegue.

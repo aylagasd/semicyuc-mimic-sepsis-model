@@ -12,16 +12,25 @@ from time import perf_counter
 from typing import Any
 
 
-def process_rss_bytes() -> int | None:
-    """Return current resident memory on Linux without adding a dependency."""
+def process_memory_bytes() -> tuple[int | None, int | None]:
+    """Return current resident and swapped memory on Linux."""
+    rss = None
+    swap = None
     try:
         with Path("/proc/self/status").open(encoding="utf-8") as stream:
             for line in stream:
                 if line.startswith("VmRSS:"):
-                    return int(line.split()[1]) * 1024
+                    rss = int(line.split()[1]) * 1024
+                elif line.startswith("VmSwap:"):
+                    swap = int(line.split()[1]) * 1024
     except (OSError, IndexError, ValueError):
-        return None
-    return None
+        return None, None
+    return rss, swap
+
+
+def process_rss_bytes() -> int | None:
+    """Return current resident memory on Linux without adding a dependency."""
+    return process_memory_bytes()[0]
 
 
 def process_io_bytes() -> tuple[int, int] | None:
@@ -63,6 +72,8 @@ class StageResourceMeasurement:
     elapsed_seconds: float = 0.0
     starting_rss_bytes: int | None = None
     peak_rss_bytes: int | None = None
+    starting_swap_bytes: int | None = None
+    peak_swap_bytes: int | None = None
     read_bytes: int | None = None
     write_bytes: int | None = None
     output_bytes: int = 0
@@ -97,8 +108,11 @@ class StageResourceMonitor:
         self._started = perf_counter()
         self._starting_io = process_io_bytes()
         self._starting_output_bytes = directory_bytes(self.output_root)
-        self.measurement.starting_rss_bytes = process_rss_bytes()
+        rss, swap = process_memory_bytes()
+        self.measurement.starting_rss_bytes = rss
         self.measurement.peak_rss_bytes = self.measurement.starting_rss_bytes
+        self.measurement.starting_swap_bytes = swap
+        self.measurement.peak_swap_bytes = self.measurement.starting_swap_bytes
         self._thread = Thread(target=self._sample_until_stopped, daemon=True)
         self._thread.start()
         return self
@@ -109,11 +123,16 @@ class StageResourceMonitor:
         self.measurement.parts = int(parts)
 
     def _sample(self) -> None:
-        value = process_rss_bytes()
-        if value is not None:
+        rss, swap = process_memory_bytes()
+        if rss is not None:
             previous = self.measurement.peak_rss_bytes
-            self.measurement.peak_rss_bytes = value if previous is None else max(
-                previous, value
+            self.measurement.peak_rss_bytes = rss if previous is None else max(
+                previous, rss
+            )
+        if swap is not None:
+            previous_swap = self.measurement.peak_swap_bytes
+            self.measurement.peak_swap_bytes = (
+                swap if previous_swap is None else max(previous_swap, swap)
             )
 
     def _sample_until_stopped(self) -> None:

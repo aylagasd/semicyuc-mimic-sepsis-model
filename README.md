@@ -176,7 +176,12 @@ python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
 
 El segundo comando limita memoria e hilos en todas las etapas y deja un
 `resource_report.json` agregado por etapa para decidir con evidencia si debe
-reducirse el lote. No incluye filas ni identificadores clínicos.
+reducirse el lote. No incluye filas ni identificadores clínicos. Valídelo con:
+
+```bash
+python scripts/validate_pipeline_resources.py \
+  /ruta/derivados/full_pipeline/resource_report.json
+```
 
 Los datos y derivados permanecen fuera de Git. Consulte
 [`docs/full_deployment_guide.md`](docs/full_deployment_guide.md) antes de usar

@@ -19,6 +19,8 @@ def test_stage_resource_monitor_records_only_aggregate_counters(tmp_path):
     assert result["parts"] == 3
     assert result["output_bytes"] == len(b"safe-aggregate-test")
     assert result["elapsed_seconds"] >= 0
+    assert result["peak_swap_bytes"] is not None
+    assert result["peak_swap_bytes"] >= 0
     assert "error_message" not in result
 
 
