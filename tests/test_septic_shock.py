@@ -19,6 +19,17 @@ def test_lactate_units_and_availability_are_normalized():
     assert result.loc[0, "lactate_available_at"] > result.loc[0, "lactate_time"]
 
 
+def test_configured_lactate_itemids_reject_unknown_mappings():
+    events = pd.DataFrame({
+        "subject_id": [1], "hadm_id": [10], "itemid": [50813],
+        "charttime": ["2100-01-01"], "valuenum": [3.0],
+        "valueuom": ["mmol/L"],
+    })
+    assert len(normalize_lactate(events, [50813])) == 1
+    with pytest.raises(ValueError, match="Unknown lactate itemids: 99999"):
+        normalize_lactate(events, [99999])
+
+
 def test_five_vasopressors_are_recognized_without_dobutamine():
     events = pd.DataFrame({
         "stay_id": [1] * 6, "itemid": [221906, 221289, 221662, 221749, 222315, 221653],

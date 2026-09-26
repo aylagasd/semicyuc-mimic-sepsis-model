@@ -27,10 +27,21 @@ def _require(frame: pd.DataFrame, columns: set[str], name: str) -> None:
         raise ValueError(f"{name} is missing columns: {', '.join(missing)}")
 
 
-def normalize_lactate(events: pd.DataFrame) -> pd.DataFrame:
+def normalize_lactate(
+    events: pd.DataFrame,
+    allowed_itemids: Iterable[int] | None = None,
+) -> pd.DataFrame:
     """Normalize serum/blood lactate to mmol/L and retain availability time."""
     _require(events, {"subject_id", "hadm_id", "itemid", "charttime", "valuenum", "valueuom"}, "events")
-    result = events.loc[events["itemid"].isin(LACTATE_ITEMIDS)].copy()
+    itemids = LACTATE_ITEMIDS if allowed_itemids is None else {
+        int(itemid) for itemid in allowed_itemids
+    }
+    unknown = sorted(itemids - LACTATE_ITEMIDS)
+    if unknown:
+        raise ValueError(
+            "Unknown lactate itemids: " + ", ".join(map(str, unknown))
+        )
+    result = events.loc[events["itemid"].isin(itemids)].copy()
     result["lactate_time"] = pd.to_datetime(
         result["charttime"], errors="coerce", format="mixed"
     )

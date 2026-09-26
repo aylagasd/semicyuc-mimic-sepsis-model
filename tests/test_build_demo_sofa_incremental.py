@@ -190,7 +190,9 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "read_demo_tables", lambda data_dir, names: {
         "labevents": pd.DataFrame(), "inputevents": pd.DataFrame(),
     })
-    monkeypatch.setattr(cli, "normalize_lactate", lambda frame: pd.DataFrame())
+    monkeypatch.setattr(
+        cli, "normalize_lactate", lambda frame, itemids: pd.DataFrame()
+    )
     monkeypatch.setattr(
         cli, "normalize_vasopressor_intervals", lambda frame, allowed: pd.DataFrame()
     )

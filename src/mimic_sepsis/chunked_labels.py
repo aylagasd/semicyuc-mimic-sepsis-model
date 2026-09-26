@@ -244,9 +244,12 @@ class ChunkedLabelBuilder:
                 complete_stays = first_sepsis_episode_per_stay(
                     complete_episodes
                 )
-                lactates = normalize_lactate(self._read_for_batch(
-                    connection, "labevents_reduced", "USING(subject_id,hadm_id)"
-                ))
+                lactates = normalize_lactate(
+                    self._read_for_batch(
+                        connection, "labevents_reduced", "USING(subject_id,hadm_id)"
+                    ),
+                    shock_config["lactate_itemids"],
+                )
                 vasopressors = normalize_vasopressor_intervals(
                     self._read_for_batch(
                         connection, "inputevents_reduced", "USING(stay_id)"
