@@ -19,6 +19,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-root", type=Path, default=Path("data/derived/full_landmarks"))
     parser.add_argument("--landmark-config", type=Path, default=Path("config/landmarks.json"))
     parser.add_argument("--split-config", type=Path, default=Path("config/splits.json"))
+    parser.add_argument("--duckdb-memory-limit", default="8GB")
+    parser.add_argument("--duckdb-temp-dir", type=Path)
+    parser.add_argument("--duckdb-threads", type=int, default=2)
     parser.add_argument("--code-version")
     parser.add_argument(
         "--partitions", nargs="+", choices=PARTITIONS,
@@ -38,6 +41,9 @@ def main() -> int:
             Path(__file__).resolve().parents[1]
         ),
         partitions=tuple(args.partitions),
+        duckdb_memory_limit=args.duckdb_memory_limit,
+        duckdb_temp_dir=args.duckdb_temp_dir,
+        duckdb_threads=args.duckdb_threads,
     ).run(resume=args.resume)
     print(json.dumps({
         name: {"parts": len(item.parts), "rows": item.rows}

@@ -1,7 +1,8 @@
 import pandas as pd
 
 from mimic_sepsis.septic_shock import (
-    build_septic_shock_labels, normalize_lactate, normalize_vasopressor_intervals,
+    SHOCK_COLUMNS, build_septic_shock_labels, normalize_lactate,
+    normalize_vasopressor_intervals,
 )
 
 
@@ -59,3 +60,19 @@ def test_nonconcurrent_criteria_do_not_label_shock():
         "vasopressor": ["vasopressin"],
     })
     assert not build_septic_shock_labels(sepsis, labs, vaso).iloc[0].septic_shock
+
+
+def test_empty_sepsis_preserves_shock_artifact_schema():
+    sepsis = pd.DataFrame(columns=["subject_id", "hadm_id", "stay_id", "t0"])
+    labs = pd.DataFrame(columns=[
+        "subject_id", "hadm_id", "lactate_time", "lactate_available_at",
+        "lactate_mmol_l",
+    ])
+    vaso = pd.DataFrame(columns=[
+        "stay_id", "starttime", "endtime", "vasopressor",
+    ])
+
+    result = build_septic_shock_labels(sepsis, labs, vaso)
+
+    assert result.empty
+    assert result.columns.tolist() == SHOCK_COLUMNS

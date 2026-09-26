@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import duckdb
@@ -38,7 +39,7 @@ def _lab_dictionary() -> pd.DataFrame:
 def read_normalized_feature_events_sql(
     connection: duckdb.DuckDBPyConnection,
     *,
-    landmark_path: str | Path,
+    landmark_path: str | Path | Sequence[str | Path],
     cohort_path: str | Path,
     chartevents_path: str | Path,
     labevents_path: str | Path,
@@ -52,6 +53,12 @@ def read_normalized_feature_events_sql(
     """
     if maximum_lookback_hours <= 0:
         raise ValueError("maximum_lookback_hours must be positive")
+    if isinstance(landmark_path, (str, Path)):
+        landmark_source: str | list[str] = str(landmark_path)
+    else:
+        landmark_source = [str(path) for path in landmark_path]
+        if not landmark_source:
+            raise ValueError("at least one landmark path is required")
     connection.register("_feature_vital_dictionary", _vital_dictionary())
     connection.register("_feature_lab_dictionary", _lab_dictionary())
     try:
@@ -131,7 +138,7 @@ def read_normalized_feature_events_sql(
             """,
             [
                 int(maximum_lookback_hours),
-                str(landmark_path),
+                landmark_source,
                 str(chartevents_path),
                 str(labevents_path),
                 str(cohort_path),

@@ -114,3 +114,54 @@ def test_sql_pushdown_requires_positive_lookback(tmp_path):
             )
     finally:
         connection.close()
+
+
+def test_sql_pushdown_accepts_multiple_landmark_parts(tmp_path):
+    cohort = pd.DataFrame({
+        "subject_id": [1], "hadm_id": [10], "stay_id": [100],
+        "intime": pd.to_datetime(["2100-01-01"]),
+        "outtime": pd.to_datetime(["2100-01-03"]),
+    })
+    chart = pd.DataFrame({
+        "stay_id": [100, 100], "itemid": [220045, 220045],
+        "charttime": pd.to_datetime(["2100-01-02 05:00", "2100-01-02 07:00"]),
+        "valuenum": [80.0, 90.0],
+    })
+    labs = pd.DataFrame({
+        "subject_id": pd.Series(dtype="int64"),
+        "hadm_id": pd.Series(dtype="int64"),
+        "itemid": pd.Series(dtype="int64"),
+        "charttime": pd.Series(dtype="datetime64[ns]"),
+        "storetime": pd.Series(dtype="datetime64[ns]"),
+        "valuenum": pd.Series(dtype="float64"),
+    })
+    first = pd.DataFrame({
+        "stay_id": [100],
+        "landmark_time": pd.to_datetime(["2100-01-02 06:00"]),
+    })
+    second = pd.DataFrame({
+        "stay_id": [100],
+        "landmark_time": pd.to_datetime(["2100-01-02 08:00"]),
+    })
+    paths = {}
+    for name, frame in {
+        "cohort": cohort, "chart": chart, "labs": labs,
+        "first": first, "second": second,
+    }.items():
+        paths[name] = tmp_path / f"{name}.parquet"
+        _write(paths[name], frame)
+
+    connection = duckdb.connect()
+    try:
+        events = read_normalized_feature_events_sql(
+            connection,
+            landmark_path=[paths["first"], paths["second"]],
+            cohort_path=paths["cohort"],
+            chartevents_path=paths["chart"],
+            labevents_path=paths["labs"],
+            maximum_lookback_hours=6,
+        )
+    finally:
+        connection.close()
+
+    assert events["value"].tolist() == [80.0, 90.0]

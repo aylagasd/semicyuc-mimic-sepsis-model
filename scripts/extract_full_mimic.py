@@ -18,6 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=Path("data/derived/full_extract"))
     parser.add_argument("--temp-dir", type=Path)
     parser.add_argument("--memory-limit", default="4GB")
+    parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--resume", action="store_true")
     return parser.parse_args()
 
@@ -31,6 +32,7 @@ def main() -> int:
     extractor = FullCSVExtractor(
         args.data_dir, args.output_dir, data_version=args.data_version,
         memory_limit=args.memory_limit, temp_dir=args.temp_dir,
+        threads=args.threads,
     )
     manifests = extractor.run(resume=args.resume)
     print(json.dumps([

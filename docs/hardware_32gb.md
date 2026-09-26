@@ -39,7 +39,7 @@ perfil.
      --data-version 3.1 \
      --output-dir /ruta/derivados/full_extract \
      --temp-dir /ruta/ssd/duckdb \
-     --memory-limit 8GB --resume
+     --memory-limit 8GB --threads 2 --resume
    ```
 
 2. Construir SOFA, etiquetas, landmarks y features en lotes de 100 estancias.
@@ -54,8 +54,9 @@ perfil.
    ```
 
 3. No ejecutar en paralelo etapas que materialicen pandas. El perfil fija como
-   máximo dos trabajadores para futuras etapas explícitamente paralelizables,
-   pero el pipeline actual es secuencial.
+   máximo dos hilos DuckDB y el pipeline actual es secuencial. El límite de
+   memoria, los hilos y el directorio de spill se aplican a SOFA, etiquetas,
+   landmarks y features, además de a la extracción.
 4. Mantener el directorio temporal y los derivados en SSD. La capacidad libre
    se valida con `preflight_mimic_files.py`; no se presupone a partir de la RAM.
 5. Crear `config/pretest_source.local.json`, ejecutar el preflight de memoria y
@@ -68,8 +69,16 @@ perfil.
   claves necesarias y cinco predictores.
 - En la construcción de features, una consulta SQL normaliza itemids y
   unidades, enlaza laboratorios con la estancia por tiempo de espécimen y
-  descarta eventos que no pueden entrar en ninguna ventana del lote. Python
-  conserva el agregador final `[L-W,L)` para mantener el contrato ya probado.
+  descarta eventos que no pueden entrar en ninguna ventana del lote. La fuente
+  se escanea una vez por lote y se reutiliza entre outcomes y particiones.
+  Python conserva el agregador final `[L-W,L)`, vectorizado por estancia, para
+  mantener el contrato ya probado.
+- Cada ejecución escribe `resource_report.json` bajo el directorio de salida.
+  Contiene solo tiempo, RSS, E/S, bytes, filas y partes agregados por etapa;
+  también persiste el tipo de excepción si una etapa falla, nunca el mensaje ni
+  filas clínicas. Puede cambiarse con `--resource-report`.
+- Los artefactos vacíos conservan su esquema. Por ello reducir el lote a 50 o
+  menos no falla cuando una parte carece de episodios de sepsis o shock.
 - Todos los ficheros y manifiestos se validan antes de leer la proyección; la
   optimización no omite controles de integridad ni leakage.
 - El bootstrap por paciente usa códigos de clúster y pesos de frecuencia. Cada
@@ -91,10 +100,21 @@ de preparación de 0,198 a 0,087 s. Las seis matrices completas del demo —dos
 outcomes por tres particiones— conservaron equivalencia exacta de multiconjunto
 frente al backend anterior.
 
+En el recorrido completo del demo, con lote 100, límite DuckDB de 1 GB y dos
+hilos en la Raspberry, reutilizar la fuente por lote y vectorizar los índices de
+ventana redujo primero la etapa de features de 97,3 a 63,1 s (35,1 %) en el
+mismo entorno. Después, eliminar merges intermedios y reutilizar por variable la
+ordenación de eventos entre ventanas redujo un benchmark fresco comparable de
+59,6 a 38,8 s (34,9 %) y el recorrido total de 89,0 a 68,0 s (23,6 %), con pico
+RSS de 197,7 MiB. Las seis matrices conservaron igualdad exacta frente al
+resultado previo. Son medidas de ingeniería local, no una proyección lineal del
+tiempo sobre MIMIC-IV completo.
+
 ## Criterio de aceptación en el i5
 
 En la primera ejecución completa se registrarán por etapa tiempo, RSS máximo,
-espacio temporal y tamaño de salida. Se acepta el perfil si el RSS permanece
+E/S y tamaño de salida mediante `resource_report.json`; el espacio temporal se
+vigilará además a nivel del sistema. Se acepta el perfil si el RSS permanece
 por debajo de 24 GiB, no hay swapping sostenido, los manifiestos validan y la
 equivalencia/invariantes clínicos pasan. Si no se cumple, se reduce el lote y
 se reanuda; aumentar paralelismo no es una corrección válida para falta de RAM.

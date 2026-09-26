@@ -19,6 +19,7 @@ from .chunked_sofa import (
     PartitionedDatasetManifest, _canonical_hash, validate_extract,
     validate_partitioned_dataset,
 )
+from .duckdb_runtime import configure_duckdb, validate_duckdb_runtime
 from .full_extract import _sql_path
 from .infection import pair_antibiotics_and_cultures
 from .sepsis_labels import build_sepsis_episodes, first_sepsis_episode_per_stay
@@ -47,6 +48,9 @@ class ChunkedLabelBuilder:
         rules_path: Path,
         shock_config_path: Path,
         code_version: str = "unknown",
+        duckdb_memory_limit: str = "8GB",
+        duckdb_temp_dir: Path | None = None,
+        duckdb_threads: int = 2,
     ) -> None:
         self.source_dir = Path(source_dir)
         self.sofa_run = Path(sofa_run)
@@ -54,14 +58,22 @@ class ChunkedLabelBuilder:
         self.rules_path = Path(rules_path)
         self.shock_config_path = Path(shock_config_path)
         self.code_version = str(code_version)
+        self.duckdb_memory_limit, self.duckdb_threads = validate_duckdb_runtime(
+            duckdb_memory_limit, duckdb_threads
+        )
+        self.duckdb_temp_dir = Path(
+            duckdb_temp_dir or self.output_root / "duckdb_tmp"
+        )
 
     def _configuration(
         self, source_sha: dict[str, str], sofa: PartitionedDatasetManifest
     ) -> dict[str, Any]:
         return {
             "backend": "partitioned-pandas-labels",
-            "chunked_label_schema_version": 2,
+            "chunked_label_schema_version": 3,
             "code_version": self.code_version,
+            "duckdb_memory_limit": self.duckdb_memory_limit,
+            "duckdb_threads": self.duckdb_threads,
             "source_sha256": source_sha,
             "sofa_config_sha256": sofa.config_sha256,
             "sofa_parts": [
@@ -106,6 +118,12 @@ class ChunkedLabelBuilder:
         cohort_path = _sql_path(self.source_dir / "cohort_stays.parquet")
         connection = duckdb.connect()
         try:
+            configure_duckdb(
+                connection,
+                memory_limit=self.duckdb_memory_limit,
+                temp_directory=self.duckdb_temp_dir,
+                threads=self.duckdb_threads,
+            )
             batch_size = int(sofa_manifest.metadata.get("batch_size", 0))
             if batch_size <= 0:
                 raise ArtifactValidationError("SOFA manifest lacks a valid batch size")

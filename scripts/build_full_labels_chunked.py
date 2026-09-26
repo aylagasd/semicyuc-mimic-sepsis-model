@@ -18,6 +18,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-root", type=Path, default=Path("data/derived/full_labels"))
     parser.add_argument("--rules", type=Path, default=Path("config/antimicrobial_rules.csv"))
     parser.add_argument("--shock-config", type=Path, default=Path("config/septic_shock.json"))
+    parser.add_argument("--duckdb-memory-limit", default="8GB")
+    parser.add_argument("--duckdb-temp-dir", type=Path)
+    parser.add_argument("--duckdb-threads", type=int, default=2)
     parser.add_argument("--code-version")
     parser.add_argument("--resume", action="store_true")
     return parser.parse_args()
@@ -32,6 +35,9 @@ def main() -> int:
         args.source_dir, args.sofa_run, args.output_root,
         rules_path=args.rules, shock_config_path=args.shock_config,
         code_version=code_version,
+        duckdb_memory_limit=args.duckdb_memory_limit,
+        duckdb_temp_dir=args.duckdb_temp_dir,
+        duckdb_threads=args.duckdb_threads,
     ).run(resume=args.resume)
     print(json.dumps({
         name: {"parts": len(item.parts), "rows": item.rows}

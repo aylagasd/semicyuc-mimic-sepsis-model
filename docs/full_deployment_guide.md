@@ -46,6 +46,7 @@ python scripts/extract_full_mimic.py /ruta/mimiciv/3.1 \
   --output-dir /ruta/derivados/full_extract \
   --temp-dir /ruta/disco_temporal/duckdb \
   --memory-limit 8GB \
+  --threads 2 \
   --resume
 ```
 
@@ -118,11 +119,20 @@ python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
   --resume
 ```
 
-El perfil fija por defecto lotes de 100 estancias y un máximo DuckDB de 8 GB.
+El perfil fija por defecto lotes de 100 estancias, un máximo DuckDB de 8 GB y
+dos hilos DuckDB para todas las etapas.
 Durante features, DuckDB ejecuta en SQL la normalización, el enlace temporal de
-laboratorios y la poda de eventos antes de materializar pandas. `--batch-size`
-y `--duckdb-memory-limit` permiten overrides explícitos para un benchmark
-registrado; no deben cambiarse a ciegas durante una ejecución científica.
+laboratorios y la poda de eventos una vez por lote antes de materializar pandas;
+Python calcula las ventanas exactas de forma vectorizada. `--batch-size`,
+`--duckdb-memory-limit` y `--duckdb-threads` permiten overrides explícitos para
+un benchmark registrado; no deben cambiarse a ciegas durante una ejecución
+científica.
+
+La ejecución actualiza atómicamente
+`/ruta/derivados/full_pipeline/resource_report.json` tras cada etapa. El informe
+solo contiene métricas agregadas de recursos y queda disponible incluso si una
+etapa falla. Los lotes sin episodios conservan el esquema Parquet, por lo que
+un lote pequeño no altera ni interrumpe el contrato clínico.
 
 En una versión no-demo, este comando exige la puerta `model` y materializa
 solo `development` y `validation`. Los constructores de bajo nivel también

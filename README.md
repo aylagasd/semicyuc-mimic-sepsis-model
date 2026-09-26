@@ -167,11 +167,16 @@ Tras descargar MIMIC-IV completo, el recorrido CSV reproducible es:
 ```bash
 python scripts/preflight_mimic_files.py /ruta/mimiciv/3.1
 python scripts/extract_full_mimic.py /ruta/mimiciv/3.1 \
-  --data-version 3.1 --output-dir /ruta/derivados/full_extract --resume
+  --data-version 3.1 --output-dir /ruta/derivados/full_extract \
+  --memory-limit 8GB --threads 2 --resume
 python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
   --output-root /ruta/derivados/full_pipeline \
   --compute-profile config/compute_32gb.json --resume
 ```
+
+El segundo comando limita memoria e hilos en todas las etapas y deja un
+`resource_report.json` agregado por etapa para decidir con evidencia si debe
+reducirse el lote. No incluye filas ni identificadores clínicos.
 
 Los datos y derivados permanecen fuera de Git. Consulte
 [`docs/full_deployment_guide.md`](docs/full_deployment_guide.md) antes de usar

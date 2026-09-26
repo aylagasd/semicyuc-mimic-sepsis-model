@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import asdict
 import json
 from pathlib import Path
-import re
 from typing import Any
 
 import duckdb
@@ -16,6 +15,7 @@ from .chunked_sofa import (
     PartitionedDatasetManifest, _canonical_hash, validate_extract,
     validate_partitioned_dataset,
 )
+from .duckdb_runtime import configure_duckdb, validate_duckdb_runtime
 from .feature_sources_sql import read_normalized_feature_events_sql
 from .features import build_numeric_feature_matrix
 
@@ -35,9 +35,11 @@ class ChunkedFeatureBuilder:
         allow_non_demo_test: bool = False,
         duckdb_memory_limit: str = "8GB",
         duckdb_temp_dir: Path | None = None,
+        duckdb_threads: int = 2,
     ) -> None:
-        if not re.fullmatch(r"[1-9][0-9]*(?:KB|MB|GB|TB)", duckdb_memory_limit):
-            raise ValueError("duckdb_memory_limit must be a positive storage size")
+        duckdb_memory_limit, duckdb_threads = validate_duckdb_runtime(
+            duckdb_memory_limit, duckdb_threads
+        )
         self.source_dir = Path(source_dir)
         self.landmark_run = Path(landmark_run)
         self.output_root = Path(output_root)
@@ -46,6 +48,7 @@ class ChunkedFeatureBuilder:
         self.partitions = validate_partitions(partitions)
         self.allow_non_demo_test = bool(allow_non_demo_test)
         self.duckdb_memory_limit = duckdb_memory_limit
+        self.duckdb_threads = duckdb_threads
         self.duckdb_temp_dir = Path(
             duckdb_temp_dir or self.output_root / "duckdb_tmp"
         )
@@ -76,7 +79,7 @@ class ChunkedFeatureBuilder:
         )
         config: dict[str, Any] = {
             "backend": "duckdb-sql-pushdown-pandas-windows",
-            "chunked_feature_schema_version": 2,
+            "chunked_feature_schema_version": 4,
             "code_version": self.code_version,
             "source_config_sha256": next(iter(sources.values())).config_sha256,
             "landmark_config_sha256": next(iter(landmarks.values())).config_sha256,
@@ -90,6 +93,7 @@ class ChunkedFeatureBuilder:
             "features": feature_config,
             "materialized_partitions": list(self.partitions),
             "duckdb_memory_limit": self.duckdb_memory_limit,
+            "duckdb_threads": self.duckdb_threads,
         }
         config_hash = _canonical_hash(config)
         run_root = self.output_root / config_hash[:16]
@@ -100,19 +104,29 @@ class ChunkedFeatureBuilder:
         collected: dict[str, list[dict[str, Any]]] = {
             name: [] for name in feature_names
         }
+        part_sequences = {
+            tuple(str(part["name"]) for part in manifest.parts)
+            for manifest in landmarks.values()
+        }
+        if len(part_sequences) != 1:
+            raise ArtifactValidationError(
+                "Landmark artifacts do not share the same ordered parts"
+            )
+        part_names = next(iter(part_sequences))
         connection = duckdb.connect()
         try:
-            self.duckdb_temp_dir.mkdir(parents=True, exist_ok=True)
-            connection.execute(
-                f"SET memory_limit='{self.duckdb_memory_limit}'"
+            configure_duckdb(
+                connection,
+                memory_limit=self.duckdb_memory_limit,
+                temp_directory=self.duckdb_temp_dir,
+                threads=self.duckdb_threads,
             )
-            connection.execute(
-                "SET temp_directory=?", [str(self.duckdb_temp_dir)]
-            )
-            for landmark_name, dataset in landmarks.items():
-                feature_name = landmark_name.replace("_landmarks", "_features")
-                for batch_index, item in enumerate(dataset.parts):
-                    part_name = str(item["name"])
+            for batch_index, part_name in enumerate(part_names):
+                pending: list[tuple[str, str, dict[str, Any], Path]] = []
+                for landmark_name in landmark_names:
+                    feature_name = landmark_name.replace(
+                        "_landmarks", "_features"
+                    )
                     part_config = {
                         **config, "landmark_artifact": landmark_name,
                         "batch_index": batch_index,
@@ -133,19 +147,29 @@ class ChunkedFeatureBuilder:
                         self.landmark_run / landmark_name / "parts" /
                         f"{part_name}.parquet"
                     )
-                    frame = connection.execute(
+                    pending.append((
+                        landmark_name, feature_name, part_config, landmark_path,
+                    ))
+                if not pending:
+                    continue
+                frames = {
+                    landmark_name: connection.execute(
                         "SELECT * FROM read_parquet(?)", [str(landmark_path)]
                     ).fetchdf()
-                    events = read_normalized_feature_events_sql(
-                        connection,
-                        landmark_path=landmark_path,
-                        cohort_path=self.source_dir / "cohort_stays.parquet",
-                        chartevents_path=self.source_dir / "chartevents_reduced.parquet",
-                        labevents_path=self.source_dir / "labevents_reduced.parquet",
-                        maximum_lookback_hours=max(
-                            int(value) for value in feature_config["lookbacks_hours"]
-                        ),
-                    )
+                    for landmark_name, _, _, landmark_path in pending
+                }
+                events = read_normalized_feature_events_sql(
+                    connection,
+                    landmark_path=[item[3] for item in pending],
+                    cohort_path=self.source_dir / "cohort_stays.parquet",
+                    chartevents_path=self.source_dir / "chartevents_reduced.parquet",
+                    labevents_path=self.source_dir / "labevents_reduced.parquet",
+                    maximum_lookback_hours=max(
+                        int(value) for value in feature_config["lookbacks_hours"]
+                    ),
+                )
+                for landmark_name, feature_name, part_config, _ in pending:
+                    frame = frames[landmark_name]
                     matrix = build_numeric_feature_matrix(
                         frame[["subject_id", "hadm_id", "stay_id", "landmark_time"]],
                         events,

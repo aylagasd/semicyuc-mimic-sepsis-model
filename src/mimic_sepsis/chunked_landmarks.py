@@ -15,6 +15,7 @@ from .chunked_sofa import (
     PartitionedDatasetManifest, _canonical_hash, validate_extract,
     validate_partitioned_dataset,
 )
+from .duckdb_runtime import configure_duckdb, validate_duckdb_runtime
 from .full_extract import _sql_path
 from .landmarks import build_multiple_horizons
 from .splits import patient_grouped_split
@@ -53,6 +54,9 @@ class ChunkedLandmarkBuilder:
         code_version: str = "unknown",
         partitions: tuple[str, ...] = PARTITIONS,
         allow_non_demo_test: bool = False,
+        duckdb_memory_limit: str = "8GB",
+        duckdb_temp_dir: Path | None = None,
+        duckdb_threads: int = 2,
     ) -> None:
         self.source_dir = Path(source_dir)
         self.sofa_run = Path(sofa_run)
@@ -63,6 +67,12 @@ class ChunkedLandmarkBuilder:
         self.code_version = str(code_version)
         self.partitions = validate_partitions(partitions)
         self.allow_non_demo_test = bool(allow_non_demo_test)
+        self.duckdb_memory_limit, self.duckdb_threads = validate_duckdb_runtime(
+            duckdb_memory_limit, duckdb_threads
+        )
+        self.duckdb_temp_dir = Path(
+            duckdb_temp_dir or self.output_root / "duckdb_tmp"
+        )
 
     def run(self, *, resume: bool = False) -> dict[str, PartitionedDatasetManifest]:
         sources = validate_extract(self.source_dir)
@@ -90,8 +100,10 @@ class ChunkedLandmarkBuilder:
         split_config = json.loads(self.split_config_path.read_text(encoding="utf-8"))
         config: dict[str, Any] = {
             "backend": "partitioned-landmarks",
-            "chunked_landmark_schema_version": 1,
+            "chunked_landmark_schema_version": 2,
             "code_version": self.code_version,
+            "duckdb_memory_limit": self.duckdb_memory_limit,
+            "duckdb_threads": self.duckdb_threads,
             "source_config_sha256": next(iter(sources.values())).config_sha256,
             "sofa_config_sha256": sofa.config_sha256,
             "label_config_sha256": next(iter(label_manifests.values())).config_sha256,
@@ -121,6 +133,12 @@ class ChunkedLandmarkBuilder:
         connection = duckdb.connect()
         cohort_path = _sql_path(self.source_dir / "cohort_stays.parquet")
         try:
+            configure_duckdb(
+                connection,
+                memory_limit=self.duckdb_memory_limit,
+                temp_directory=self.duckdb_temp_dir,
+                threads=self.duckdb_threads,
+            )
             cohort = connection.execute(
                 f"SELECT * FROM read_parquet('{cohort_path}') "
                 "ORDER BY subject_id, intime, stay_id"

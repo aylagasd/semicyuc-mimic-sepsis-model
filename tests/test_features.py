@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -85,3 +86,64 @@ def test_empty_landmark_matrix_keeps_a_stable_schema():
     )
     assert result.empty
     assert "map_missing_6h" in result
+
+
+def test_vectorized_windows_match_direct_reference_across_stays():
+    points = pd.DataFrame({
+        "subject_id": [2, 1, 1, 3],
+        "hadm_id": [20, 10, 10, 30],
+        "stay_id": [200, 100, 100, 300],
+        "landmark_time": pd.to_datetime([
+            "2100-01-03 12:00", "2100-01-02 12:00",
+            "2100-01-03 00:00", "2100-01-02 12:00",
+        ]),
+    })
+    source = pd.DataFrame({
+        "stay_id": [100, 100, 100, 100, 200, 200],
+        "event_time": pd.to_datetime([
+            "2100-01-01 12:00", "2100-01-02 11:00",
+            "2100-01-02 11:00", "2100-01-03 00:00",
+            "2100-01-03 06:00", "2100-01-03 11:00",
+        ]),
+        "value": [1.0, 2.0, 4.0, 8.0, 10.0, 20.0],
+    })
+    actual = numeric_window_features(
+        points, source, variable="heart_rate", lookback_hours=24
+    )
+
+    expected_rows = []
+    for point in points.itertuples(index=False):
+        lower = point.landmark_time - pd.Timedelta(hours=24)
+        window = source.loc[
+            source["stay_id"].eq(point.stay_id)
+            & source["event_time"].ge(lower)
+            & source["event_time"].lt(point.landmark_time)
+        ].sort_values("event_time")
+        values = window["value"].to_numpy(dtype=float)
+        times = window["event_time"].to_numpy(dtype="datetime64[ns]")
+        count = len(window)
+        slope = np.nan
+        if count >= 2:
+            x = (times - times[0]) / np.timedelta64(1, "h")
+            if np.ptp(x) > 0:
+                slope = np.polyfit(x, values, 1)[0]
+        expected_rows.append({
+            "subject_id": point.subject_id,
+            "hadm_id": point.hadm_id,
+            "stay_id": point.stay_id,
+            "landmark_time": point.landmark_time,
+            "heart_rate_count_24h": count,
+            "heart_rate_missing_24h": count == 0,
+            "heart_rate_last_24h": np.nan if not count else values[-1],
+            "heart_rate_min_24h": np.nan if not count else values.min(),
+            "heart_rate_max_24h": np.nan if not count else values.max(),
+            "heart_rate_mean_24h": np.nan if not count else values.mean(),
+            "heart_rate_std_24h": np.nan if count < 2 else values.std(ddof=1),
+            "heart_rate_slope_24h": slope,
+            "heart_rate_hours_since_last_24h": np.nan if not count else (
+                np.datetime64(point.landmark_time, "ns") - times[-1]
+            ) / np.timedelta64(1, "h"),
+        })
+    expected = pd.DataFrame(expected_rows)
+
+    pd.testing.assert_frame_equal(actual, expected, check_exact=False, rtol=1e-12)

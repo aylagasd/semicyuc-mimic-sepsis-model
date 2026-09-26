@@ -176,6 +176,8 @@ Los módulos principales son:
   acotado por lotes para MIMIC-IV completo.
 - `pretest_inputs.py` y `resource_planning.py`: lectura proyectada del horizonte
   y variables primarios, más preflight agregado para el perfil de 32 GiB.
+- `duckdb_runtime.py` y `resource_telemetry.py`: presupuesto uniforme de
+  memoria/hilos/spill y medición agregada por etapa sin datos clínicos.
 
 DuckDB se usa como motor SQL local fuera de memoria para reducir CSV,
 seleccionar las filas de cada lote, normalizar y enlazar fuentes de features,

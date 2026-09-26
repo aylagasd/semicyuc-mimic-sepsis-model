@@ -12,6 +12,12 @@ VASOPRESSOR_ITEMS = {
     221906: "norepinephrine", 221289: "epinephrine", 221662: "dopamine",
     221749: "phenylephrine", 222315: "vasopressin",
 }
+SHOCK_COLUMNS = [
+    "subject_id", "hadm_id", "stay_id", "sepsis_t0", "septic_shock",
+    "shock_t0", "shock_label_available_at", "lactate_time",
+    "lactate_mmol_l", "vasopressor", "vasopressor_start",
+    "adequate_fluids_verified",
+]
 
 
 def _require(frame: pd.DataFrame, columns: set[str], name: str) -> None:
@@ -124,4 +130,4 @@ def build_septic_shock_labels(
                 "lactate_mmol_l": pd.NA, "vasopressor": pd.NA,
                 "vasopressor_start": pd.NaT, "adequate_fluids_verified": False,
             })
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=SHOCK_COLUMNS)

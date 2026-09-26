@@ -15,6 +15,7 @@ import duckdb
 import pandas as pd
 
 from .artifacts import ArtifactStore, ArtifactValidationError
+from .duckdb_runtime import configure_duckdb, validate_duckdb_runtime
 from .full_extract import ExtractManifest, _hash_file, _sql_path
 from .sofa_demo import build_demo_hourly_sofa
 
@@ -248,6 +249,9 @@ class ChunkedSofaBuilder:
         *,
         batch_size: int = 250,
         code_version: str = "unknown",
+        duckdb_memory_limit: str = "8GB",
+        duckdb_temp_dir: Path | None = None,
+        duckdb_threads: int = 2,
     ) -> None:
         if batch_size <= 0:
             raise ValueError("batch_size must be positive")
@@ -255,13 +259,21 @@ class ChunkedSofaBuilder:
         self.output_root = Path(output_root)
         self.batch_size = int(batch_size)
         self.code_version = str(code_version)
+        self.duckdb_memory_limit, self.duckdb_threads = validate_duckdb_runtime(
+            duckdb_memory_limit, duckdb_threads
+        )
+        self.duckdb_temp_dir = Path(
+            duckdb_temp_dir or self.output_root / "duckdb_tmp"
+        )
 
     def _configuration(self, sources: dict[str, ExtractManifest]) -> dict[str, Any]:
         return {
             "backend": "duckdb-filtered-pandas-batches",
-            "chunked_sofa_schema_version": 1,
+            "chunked_sofa_schema_version": 2,
             "batch_size": self.batch_size,
             "code_version": self.code_version,
+            "duckdb_memory_limit": self.duckdb_memory_limit,
+            "duckdb_threads": self.duckdb_threads,
             "source_config_sha256": next(iter(sources.values())).config_sha256,
             "source_sha256": {name: item.sha256 for name, item in sources.items()},
         }
@@ -289,6 +301,12 @@ class ChunkedSofaBuilder:
         connection = duckdb.connect()
         parts: list[dict[str, Any]] = []
         try:
+            configure_duckdb(
+                connection,
+                memory_limit=self.duckdb_memory_limit,
+                temp_directory=self.duckdb_temp_dir,
+                threads=self.duckdb_threads,
+            )
             cohort_path = _sql_path(self.source_dir / "cohort_stays.parquet")
             stay_ids = [
                 int(row[0]) for row in connection.execute(

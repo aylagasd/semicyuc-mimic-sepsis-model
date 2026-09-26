@@ -10,6 +10,7 @@ from typing import Iterable
 
 import duckdb
 
+from .duckdb_runtime import configure_duckdb, validate_duckdb_runtime
 from .feature_sources import LAB_ITEMS, VITAL_ITEMS
 from .sofa_hourly import HEART_RATE_ITEMID
 from .sofa_labs import LAB_COMPONENTS
@@ -66,11 +67,14 @@ class FullCSVExtractor:
         data_version: str,
         memory_limit: str = "4GB",
         temp_dir: Path | None = None,
+        threads: int = 2,
     ) -> None:
         self.data_dir = Path(data_dir)
         self.output_dir = Path(output_dir)
         self.data_version = str(data_version)
-        self.memory_limit = memory_limit
+        self.memory_limit, self.threads = validate_duckdb_runtime(
+            memory_limit, threads
+        )
         self.temp_dir = Path(temp_dir or output_dir / "tmp")
         self.config = {
             "backend": "duckdb-out-of-core-csv",
@@ -139,8 +143,12 @@ class FullCSVExtractor:
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         connection = duckdb.connect()
         try:
-            connection.execute(f"SET memory_limit='{self.memory_limit}'")
-            connection.execute(f"SET temp_directory='{_sql_path(self.temp_dir)}'")
+            configure_duckdb(
+                connection,
+                memory_limit=self.memory_limit,
+                temp_directory=self.temp_dir,
+                threads=self.threads,
+            )
             for name, relative in {
                 "patients": "hosp/patients.csv.gz",
                 "admissions": "hosp/admissions.csv.gz",
