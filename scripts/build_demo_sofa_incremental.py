@@ -45,7 +45,7 @@ from mimic_sepsis.sofa_hourly import build_icustay_hourly_grid
 DATA_VERSION = "2.2"
 MIMIC_CODE_VERSION = "v2.4.0"
 MIMIC_CODE_COMMIT = "570ef01"
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 RAW_TABLES = {
     "icustays": "icu/icustays.csv.gz",
     "chartevents": "icu/chartevents.csv.gz",
@@ -343,7 +343,8 @@ def build_label_stage(
         sepsis_stays, lactates, vasopressors,
         lactate_threshold=shock_config["lactate_threshold_mmol_l"],
         concurrency_hours=shock_config["concurrency_hours"],
-        association_hours=shock_config["sepsis_association_hours_after"],
+        association_hours_before=shock_config["sepsis_association_hours_before"],
+        association_hours_after=shock_config["sepsis_association_hours_after"],
     )
     frames = (
         pairs, episodes, sepsis_stays, complete_episodes, complete_stays,

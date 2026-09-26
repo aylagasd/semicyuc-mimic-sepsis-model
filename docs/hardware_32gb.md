@@ -65,6 +65,9 @@ perfil.
 
 ## Optimizaciones implementadas
 
+- El etiquetado del proxy de shock indexa los lactatos por ingreso y los
+  vasopresores por estancia una sola vez; no vuelve a recorrer ambas tablas
+  completas para cada estancia séptica.
 - DuckDB aplica predicados y proyección directamente sobre Parquet: para el
   informe primario solo llegan a pandas el horizonte de 6 h observado, las
   claves necesarias y cinco predictores.

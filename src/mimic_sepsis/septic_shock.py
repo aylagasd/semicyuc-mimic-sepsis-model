@@ -75,7 +75,8 @@ def build_septic_shock_labels(
     *,
     lactate_threshold: float = 2.0,
     concurrency_hours: float = 6,
-    association_hours: float = 24,
+    association_hours_before: float = 24,
+    association_hours_after: float = 24,
 ) -> pd.DataFrame:
     """Label shock when hyperlactatemia and vasopressor therapy co-occur near t0.
 
@@ -85,23 +86,48 @@ def build_septic_shock_labels(
     _require(sepsis_stays, {"subject_id", "hadm_id", "stay_id", "t0"}, "sepsis_stays")
     _require(lactates, {"subject_id", "hadm_id", "lactate_time", "lactate_available_at", "lactate_mmol_l"}, "lactates")
     _require(vasopressors, {"stay_id", "starttime", "endtime", "vasopressor"}, "vasopressors")
-    if lactate_threshold < 0 or concurrency_hours < 0 or association_hours < 0:
+    if (
+        lactate_threshold < 0
+        or concurrency_hours < 0
+        or association_hours_before < 0
+        or association_hours_after < 0
+    ):
         raise ValueError("Shock thresholds and windows must be non-negative")
+    # Index once by admission/stay. Repeated full-frame boolean scans make the
+    # full MIMIC-IV run quadratic in the number of septic stays.
+    lactates = lactates.copy()
+    lactates["lactate_time"] = pd.to_datetime(lactates["lactate_time"])
+    lactates["lactate_available_at"] = pd.to_datetime(
+        lactates["lactate_available_at"]
+    )
+    vasopressors = vasopressors.copy()
+    vasopressors["starttime"] = pd.to_datetime(vasopressors["starttime"])
+    vasopressors["endtime"] = pd.to_datetime(vasopressors["endtime"])
+    lactate_groups = {
+        key: group
+        for key, group in lactates.groupby(["subject_id", "hadm_id"], sort=False)
+    }
+    vasopressor_groups = {
+        key: group for key, group in vasopressors.groupby("stay_id", sort=False)
+    }
     rows = []
     for sepsis in sepsis_stays.itertuples(index=False):
         t0 = pd.to_datetime(sepsis.t0)
-        association = timedelta(hours=association_hours)
-        lower, upper = t0 - association, t0 + association
-        labs = lactates.loc[
-            lactates["subject_id"].eq(sepsis.subject_id)
-            & lactates["hadm_id"].eq(sepsis.hadm_id)
-            & lactates["lactate_mmol_l"].gt(lactate_threshold)
-            & pd.to_datetime(lactates["lactate_time"]).between(lower, upper, inclusive="both")
+        lower = t0 - timedelta(hours=association_hours_before)
+        upper = t0 + timedelta(hours=association_hours_after)
+        admission_labs = lactate_groups.get(
+            (sepsis.subject_id, sepsis.hadm_id), lactates.iloc[0:0]
+        )
+        stay_vasopressors = vasopressor_groups.get(
+            sepsis.stay_id, vasopressors.iloc[0:0]
+        )
+        labs = admission_labs.loc[
+            admission_labs["lactate_mmol_l"].gt(lactate_threshold)
+            & admission_labs["lactate_time"].between(lower, upper, inclusive="both")
         ]
-        vaso = vasopressors.loc[
-            vasopressors["stay_id"].eq(sepsis.stay_id)
-            & pd.to_datetime(vasopressors["starttime"]).le(upper)
-            & pd.to_datetime(vasopressors["endtime"]).ge(lower)
+        vaso = stay_vasopressors.loc[
+            stay_vasopressors["starttime"].le(upper)
+            & stay_vasopressors["endtime"].ge(lower)
         ]
         candidates = []
         tolerance = timedelta(hours=concurrency_hours)

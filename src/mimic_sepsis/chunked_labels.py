@@ -256,7 +256,8 @@ class ChunkedLabelBuilder:
                     vasopressors,
                     lactate_threshold=shock_config["lactate_threshold_mmol_l"],
                     concurrency_hours=shock_config["concurrency_hours"],
-                    association_hours=shock_config["sepsis_association_hours_after"],
+                    association_hours_before=shock_config["sepsis_association_hours_before"],
+                    association_hours_after=shock_config["sepsis_association_hours_after"],
                 )
                 frames = dict(zip(
                     LABEL_ARTIFACTS,

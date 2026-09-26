@@ -62,6 +62,33 @@ def test_nonconcurrent_criteria_do_not_label_shock():
     assert not build_septic_shock_labels(sepsis, labs, vaso).iloc[0].septic_shock
 
 
+def test_asymmetric_sepsis_association_windows_are_honoured():
+    t0 = pd.Timestamp("2100-01-02")
+    sepsis = pd.DataFrame({"subject_id": [1], "hadm_id": [10], "stay_id": [100], "t0": [t0]})
+    event_time = t0 - pd.Timedelta(hours=12)
+    labs = pd.DataFrame({
+        "subject_id": [1], "hadm_id": [10], "lactate_time": [event_time],
+        "lactate_available_at": [event_time], "lactate_mmol_l": [4.0],
+    })
+    vaso = pd.DataFrame({
+        "stay_id": [100], "starttime": [event_time],
+        "endtime": [event_time + pd.Timedelta(hours=1)],
+        "vasopressor": ["norepinephrine"],
+    })
+    excluded = build_septic_shock_labels(
+        sepsis, labs, vaso,
+        association_hours_before=6,
+        association_hours_after=24,
+    )
+    included = build_septic_shock_labels(
+        sepsis, labs, vaso,
+        association_hours_before=24,
+        association_hours_after=6,
+    )
+    assert not excluded.iloc[0].septic_shock
+    assert included.iloc[0].septic_shock
+
+
 def test_empty_sepsis_preserves_shock_artifact_schema():
     sepsis = pd.DataFrame(columns=["subject_id", "hadm_id", "stay_id", "t0"])
     labs = pd.DataFrame(columns=[
