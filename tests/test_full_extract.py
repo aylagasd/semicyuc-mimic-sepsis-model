@@ -75,3 +75,34 @@ def test_manifest_does_not_contain_source_path(tmp_path):
         "artifact", "columns", "config_sha256", "data_version", "rows", "sha256"
     }
     assert str(extractor.data_dir) not in json.dumps(raw)
+
+
+def test_cohort_policy_and_age_are_bound_to_extract_identity(tmp_path):
+    primary = FullCSVExtractor(
+        tmp_path / "source", tmp_path / "primary",
+        data_version="test", stay_policy="first_per_admission",
+    )
+    patient = FullCSVExtractor(
+        tmp_path / "source", tmp_path / "patient",
+        data_version="test", stay_policy="first_per_patient",
+    )
+    older = FullCSVExtractor(
+        tmp_path / "source", tmp_path / "older",
+        data_version="test", minimum_age=65,
+    )
+    assert primary.config["cohort_policy"] == "first_per_admission"
+    assert patient.config["cohort_policy"] == "first_per_patient"
+    assert len({primary.config_hash, patient.config_hash, older.config_hash}) == 3
+
+
+def test_extract_rejects_invalid_cohort_configuration(tmp_path):
+    with pytest.raises(ValueError, match="minimum_age"):
+        FullCSVExtractor(
+            tmp_path / "source", tmp_path / "derived",
+            data_version="test", minimum_age=-1,
+        )
+    with pytest.raises(ValueError):
+        FullCSVExtractor(
+            tmp_path / "source", tmp_path / "derived",
+            data_version="test", stay_policy="unreviewed",
+        )

@@ -45,7 +45,7 @@ from mimic_sepsis.sofa_hourly import build_icustay_hourly_grid
 DATA_VERSION = "2.2"
 MIMIC_CODE_VERSION = "v2.4.0"
 MIMIC_CODE_COMMIT = "570ef01"
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 RAW_TABLES = {
     "icustays": "icu/icustays.csv.gz",
     "chartevents": "icu/chartevents.csv.gz",
@@ -73,11 +73,15 @@ COMPONENTS = (
 )
 
 
-def canonical_config() -> dict:
+def canonical_config(
+    stay_policy: StayPolicy | str = StayPolicy.FIRST_PER_ADMISSION,
+) -> dict:
     """Return the credential-free effective configuration."""
+    policy = StayPolicy(stay_policy)
     return {
         "artifact_schema_version": SCHEMA_VERSION,
         "backend": "demo-files",
+        "cohort": {"minimum_age": 18, "stay_policy": policy.value},
         "data_release": DATA_VERSION,
         "dialect": "pandas",
         "gcs_contemporaneous_minutes": 0,
@@ -204,7 +208,8 @@ def build_cohort_stage(
     )
     result = build_adult_icu_cohort(
         tables["patients"], tables["admissions"], tables["icustays"],
-        stay_policy=StayPolicy.FIRST_PER_ADMISSION,
+        minimum_age=config["cohort"]["minimum_age"],
+        stay_policy=StayPolicy(config["cohort"]["stay_policy"]),
     )
     cohort = result.cohort.copy()
     cohort["cohort_included"] = True
@@ -454,6 +459,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--stage", choices=("cohort", "score", "label", "landmark", "feature", "all"), default="all",
     )
     parser.add_argument(
+        "--stay-policy",
+        choices=tuple(policy.value for policy in StayPolicy),
+        default=StayPolicy.FIRST_PER_ADMISSION.value,
+        help="versioned ICU-stay selection policy",
+    )
+    parser.add_argument(
         "--resume", action="store_true",
         help="reuse only artifacts whose checksum and configuration validate",
     )
@@ -462,7 +473,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    config = canonical_config()
+    config = canonical_config(args.stay_policy)
     run_id = make_run_id(config)
     run_root = args.output_root / run_id
     code_version = project_version(Path(__file__).resolve().parents[1])

@@ -8,10 +8,6 @@ evidence for human review; it cannot mutate protocol status.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-import hashlib
-import json
-import os
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -35,6 +31,11 @@ from .phenotype_audit import (
     shock_proxy_summary,
     sofa_completeness_summary,
     unavailable_complete_sofa_sensitivity,
+)
+from .protected_evidence import (
+    protected_evidence_sha256,
+    read_protected_evidence,
+    write_protected_evidence,
 )
 from .sepsis_labels import first_sepsis_episode_per_stay
 
@@ -279,50 +280,24 @@ def build_phenotype_evidence(
     }
 
 
-def _canonical_json(value: Mapping[str, Any]) -> str:
-    return json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
-    )
-
-
 def evidence_sha256(content: Mapping[str, Any]) -> str:
     """Hash stable report content independently of generation time and path."""
-    return hashlib.sha256(_canonical_json(content).encode("utf-8")).hexdigest()
+    return protected_evidence_sha256(content)
 
 
 def write_phenotype_evidence(
     path: str | Path, content: Mapping[str, Any]
 ) -> str:
     """Atomically persist protected aggregate evidence with restrictive mode."""
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    digest = evidence_sha256(content)
-    document = {
-        "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "report_sha256": digest,
-        "content": content,
-    }
-    temporary = target.with_name(f".{target.name}.partial")
-    try:
-        temporary.write_text(
-            json.dumps(document, indent=2, sort_keys=True, ensure_ascii=True) + "\n",
-            encoding="utf-8",
-        )
-        os.chmod(temporary, 0o600)
-        os.replace(temporary, target)
-    finally:
-        temporary.unlink(missing_ok=True)
-    return digest
+    return write_protected_evidence(path, content)
 
 
 def read_phenotype_evidence(path: str | Path) -> dict[str, Any]:
     """Read a report and fail closed when its content digest does not match."""
     try:
-        document = json.loads(Path(path).read_text(encoding="utf-8"))
-        content = document["content"]
-        expected = document["report_sha256"]
-    except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
-        raise ArtifactValidationError("Malformed phenotype evidence report") from error
-    if not isinstance(content, dict) or evidence_sha256(content) != expected:
-        raise ArtifactValidationError("Phenotype evidence checksum mismatch")
-    return document
+        return read_protected_evidence(path)
+    except ArtifactValidationError as error:
+        raise ArtifactValidationError(
+            str(error).replace("protected evidence", "phenotype evidence")
+            .replace("Protected evidence", "Phenotype evidence")
+        ) from error

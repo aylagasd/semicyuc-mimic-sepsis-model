@@ -11,7 +11,7 @@ entradas, salidas, versión de datos, semilla y criterios de finalización.
 | 00 | `00_download_and_inspect_demo.ipynb` | Python | Descargar y verificar MIMIC-IV Demo v2.2. |
 | 01 | `01_demo_tables.ipynb` | Python | Inventariar tablas y validar enlaces del demo local. |
 | 02 | `02_cohort_profile.ipynb` | Python | Perfil preliminar de la cohorte adulta del demo local. |
-| 03 | `03_define_cohort.ipynb` | Python | Construir, auditar y comparar políticas de cohorte adulta. |
+| 03 | `03_define_cohort.ipynb` | Python | Reconstruir, auditar y comparar las políticas versionadas de cohorte adulta. |
 | 04 | `04_suspected_infection.ipynb` | Python | Auditar fuentes y probar pares antibiótico-cultivo. |
 | 05 | `05_confirm_antimicrobials.ipynb` | Python | Clasificar fármacos y contrastar administración EMAR. |
 | 06 | `06_sofa_readiness.ipynb` | Python | Auditar cobertura, umbrales y riesgos del SOFA dinámico. |

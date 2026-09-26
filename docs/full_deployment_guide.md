@@ -44,6 +44,7 @@ Superado el preflight, la reducción fuera de memoria se ejecuta con:
 python scripts/extract_full_mimic.py /ruta/mimiciv/3.1 \
   --data-version 3.1 \
   --output-dir /ruta/derivados/full_extract \
+  --stay-policy first_per_admission \
   --temp-dir /ruta/disco_temporal/duckdb \
   --memory-limit 8GB \
   --threads 2 \
@@ -58,6 +59,12 @@ con número de filas, esquema, versión, hash de configuración y SHA-256. Con
 La salida del comando contiene exclusivamente recuentos y hashes agregados.
 El valor de 8 GB corresponde al perfil conservador i5/32 GiB documentado en
 [`hardware_32gb.md`](hardware_32gb.md); no es una necesidad metodológica.
+La política y la edad mínima forman parte del hash de extracción. Las
+sensibilidades `first_per_patient` y `all` deben usar directorios de salida
+distintos y reconstruir todos sus descendientes; no se obtienen filtrando el
+Parquet primario. Antes de decidir D002 puede generarse el flujo comparativo
+agregado con `scripts/audit_cohort_policy_freeze.py`, según
+[`cohort_policy_evidence.md`](cohort_policy_evidence.md).
 
 Antes de construir el fenotipo completo debe pasar además la puerta de
 protocolo:

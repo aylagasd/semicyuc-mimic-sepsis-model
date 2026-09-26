@@ -17,7 +17,7 @@ se implementa como sensibilidad o como nueva versión del protocolo.
 | ID | Estado | Decisión primaria | Implementación/configuración | Evidencia y sensibilidades |
 |---|---|---|---|---|
 | D001 | frozen | MIMIC-IV Demo v2.2 para desarrollo local; MIMIC-IV v3.1 previsto para el análisis completo. | `scripts/download_mimic_demo.py`; manifiestos de artefactos | `docs/mimic_code_sofa_plan.md` |
-| D002 | provisional | Primera estancia UCI elegible por ingreso para el análisis primario de cohorte. | `src/mimic_sepsis/cohort.py` | Todas las estancias y primera por paciente serán sensibilidades. |
+| D002 | provisional | Primera estancia UCI elegible por ingreso para el análisis primario de cohorte. | `src/mimic_sepsis/cohort.py`; `scripts/audit_cohort_policy_freeze.py` reconstruye y compara las tres políticas | Todas las estancias y primera por paciente serán sensibilidades completas; requiere firma clínica/metodológica. |
 | D003 | frozen | Infección sospechada: antimicrobiano primero + cultivo en 24 h, o cultivo primero + antimicrobiano en 72 h; `t_si` es el evento anterior. | `src/mimic_sepsis/infection.py` | `docs/sepsis_definition.md` |
 | D004 | provisional | Antimicrobiano sistémico confirmado por primera administración EMAR; cultivo de sangre en la definición primaria. | `config/antimicrobial_rules.csv`; `scripts/build_demo_sofa_incremental.py` | Prescripción y cultivos expandidos serán sensibilidades. La lista requiere revisión clínica antes del análisis completo. |
 | D005 | frozen | SOFA horario: peor valor por componente en `(e-24 h, e]`; ausentes a cero en el total MIMIC y total completo conservado aparte. | `src/mimic_sepsis/sofa_*.py` | `docs/mimic_code_sofa_plan.md` |

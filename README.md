@@ -168,6 +168,7 @@ Tras descargar MIMIC-IV completo, el recorrido CSV reproducible es:
 python scripts/preflight_mimic_files.py /ruta/mimiciv/3.1
 python scripts/extract_full_mimic.py /ruta/mimiciv/3.1 \
   --data-version 3.1 --output-dir /ruta/derivados/full_extract \
+  --stay-policy first_per_admission \
   --memory-limit 8GB --threads 2 --resume
 python scripts/build_full_pipeline_chunked.py /ruta/derivados/full_extract \
   --output-root /ruta/derivados/full_pipeline \
@@ -192,6 +193,9 @@ se genera en el entorno protegido con `scripts/audit_phenotype_freeze.py`. El
 contrato y sus límites se explican en
 [`docs/phenotype_freeze_evidence.md`](docs/phenotype_freeze_evidence.md); el
 informe no congela decisiones automáticamente.
+La política de estancias D002 tiene un informe protegido complementario,
+`scripts/audit_cohort_policy_freeze.py`, documentado en
+[`docs/cohort_policy_evidence.md`](docs/cohort_policy_evidence.md).
 
 Para validar el módulo sin una base MIMIC-IV real:
 

@@ -38,6 +38,7 @@ perfil.
    python scripts/extract_full_mimic.py /ruta/mimiciv/3.1 \
      --data-version 3.1 \
      --output-dir /ruta/derivados/full_extract \
+     --stay-policy first_per_admission \
      --temp-dir /ruta/ssd/duckdb \
      --memory-limit 8GB --threads 2 --resume
    ```

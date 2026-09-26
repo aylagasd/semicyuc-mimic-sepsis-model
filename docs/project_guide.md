@@ -185,6 +185,8 @@ Los módulos principales son:
   contra el perfil de cómputo declarado.
 - `phenotype_evidence.py`: dossier agregado, verificable y no autorizante para
   revisar las decisiones clínicas provisionales del fenotipo.
+- `cohort_evidence.py`: comparación protegida y ligada a fuentes de las tres
+  políticas de estancia preespecificadas para D002.
 
 DuckDB se usa como motor SQL local fuera de memoria para reducir CSV,
 seleccionar las filas de cada lote, normalizar y enlazar fuentes de features,
@@ -282,6 +284,10 @@ python scripts/audit_phenotype_freeze.py data/derived/sofa/<run_id>
 
 El informe ayuda a revisar las opciones pero no cambia por sí mismo el estado
 del protocolo.
+
+La política de cohorte se revisa por separado, reconstruyendo las tres opciones
+desde las tablas fuente mediante `scripts/audit_cohort_policy_freeze.py`; véase
+[`cohort_policy_evidence.md`](cohort_policy_evidence.md).
 
 ### 8.3 Jupyter
 

@@ -10,6 +10,7 @@ from typing import Iterable
 
 import duckdb
 
+from .cohort import StayPolicy
 from .duckdb_runtime import configure_duckdb, validate_duckdb_runtime
 from .feature_sources import LAB_ITEMS, VITAL_ITEMS
 from .sofa_hourly import HEART_RATE_ITEMID
@@ -65,6 +66,8 @@ class FullCSVExtractor:
         output_dir: Path,
         *,
         data_version: str,
+        minimum_age: int = 18,
+        stay_policy: StayPolicy | str = StayPolicy.FIRST_PER_ADMISSION,
         memory_limit: str = "4GB",
         temp_dir: Path | None = None,
         threads: int = 2,
@@ -72,15 +75,20 @@ class FullCSVExtractor:
         self.data_dir = Path(data_dir)
         self.output_dir = Path(output_dir)
         self.data_version = str(data_version)
+        if minimum_age < 0:
+            raise ValueError("minimum_age must be non-negative")
+        self.minimum_age = int(minimum_age)
+        self.stay_policy = StayPolicy(stay_policy)
         self.memory_limit, self.threads = validate_duckdb_runtime(
             memory_limit, threads
         )
         self.temp_dir = Path(temp_dir or output_dir / "tmp")
         self.config = {
             "backend": "duckdb-out-of-core-csv",
-            "cohort_policy": "first_per_admission",
+            "cohort_policy": self.stay_policy.value,
             "data_version": self.data_version,
-            "extractor_schema_version": 7,
+            "extractor_schema_version": 8,
+            "minimum_age": self.minimum_age,
             "itemids": {
                 "chartevents": sorted(CHARTEVENT_ITEMIDS),
                 "labevents": sorted(LABEVENT_ITEMIDS),
@@ -163,7 +171,7 @@ class FullCSVExtractor:
                 "microbiology": "hosp/microbiologyevents.csv.gz",
             }.items():
                 self._view(connection, name, relative)
-            connection.execute("""
+            connection.execute(f"""
                 CREATE TEMP TABLE cohort_evaluated AS
                 SELECT i.subject_id, i.hadm_id, i.stay_id, i.intime, i.outtime,
                        i.first_careunit, p.gender, a.admission_type,
@@ -175,17 +183,22 @@ class FullCSVExtractor:
                          WHEN i.intime IS NULL OR i.outtime IS NULL THEN 'missing_timestamp'
                          WHEN i.outtime <= i.intime THEN 'non_positive_duration'
                          WHEN p.anchor_age IS NULL OR p.anchor_year IS NULL THEN 'missing_age'
-                         WHEN p.anchor_age + year(i.intime) - p.anchor_year < 18 THEN 'younger_than_minimum_age'
+                         WHEN p.anchor_age + year(i.intime) - p.anchor_year < {self.minimum_age} THEN 'younger_than_minimum_age'
                          ELSE NULL
                        END AS initial_exclusion_reason
                 FROM icustays i
                 LEFT JOIN patients p USING (subject_id)
                 LEFT JOIN admissions a USING (subject_id, hadm_id)
             """)
-            connection.execute("""
+            partition_columns = {
+                StayPolicy.FIRST_PER_ADMISSION: "subject_id, hadm_id",
+                StayPolicy.FIRST_PER_PATIENT: "subject_id",
+                StayPolicy.ALL: "stay_id",
+            }[self.stay_policy]
+            connection.execute(f"""
                 CREATE TEMP TABLE cohort_ranked AS
                 SELECT *, row_number() OVER (
-                    PARTITION BY subject_id, hadm_id ORDER BY intime, stay_id
+                    PARTITION BY {partition_columns} ORDER BY intime, stay_id
                 ) AS stay_rank
                 FROM cohort_evaluated
                 WHERE initial_exclusion_reason IS NULL
@@ -204,16 +217,17 @@ class FullCSVExtractor:
                 "SELECT * FROM cohort ORDER BY subject_id, intime, stay_id",
                 resume=resume,
             )]
+            not_selected_reason = f"not_selected:{self.stay_policy.value}"
             manifests.append(self._write(
                 connection, "cohort_audit",
-                """SELECT e.subject_id, e.hadm_id, e.stay_id,
+                f"""SELECT e.subject_id, e.hadm_id, e.stay_id,
                           cast(e.intime AS TIMESTAMP_NS) AS intime,
                           cast(e.outtime AS TIMESTAMP_NS) AS outtime,
                           e.age_at_icu, e.first_careunit, e.gender,
                           e.admission_type, e.admission_location, e.insurance,
                           e.race, r.stay_rank, coalesce(
                             e.initial_exclusion_reason,
-                            CASE WHEN r.stay_rank>1 THEN 'not_selected:first_per_admission' END
+                            CASE WHEN r.stay_rank>1 THEN '{not_selected_reason}' END
                           ) AS exclusion_reason,
                           coalesce(r.stay_rank=1, false) AS selected
                    FROM cohort_evaluated e LEFT JOIN cohort_ranked r USING(stay_id)

@@ -20,6 +20,9 @@ Los agregados reproducibles para apoyar esta revisión se generan con
 `scripts/audit_phenotype_freeze.py`; su contrato, denominadores y límites están
 documentados en [`phenotype_freeze_evidence.md`](phenotype_freeze_evidence.md).
 El comando no modifica estados ni sustituye ninguna firma.
+La comparación específica de políticas de cohorte D002 se genera con
+`scripts/audit_cohort_policy_freeze.py` y se describe en
+[`cohort_policy_evidence.md`](cohort_policy_evidence.md).
 
 ## 2. Propuestas que requieren firma
 

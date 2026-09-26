@@ -20,6 +20,14 @@ def test_run_id_is_stable_and_does_not_contain_credentials():
     assert "password" not in config
 
 
+def test_cohort_policy_is_versioned_in_run_identity():
+    primary = cli.canonical_config("first_per_admission")
+    patient = cli.canonical_config("first_per_patient")
+    assert primary["cohort"]["stay_policy"] == "first_per_admission"
+    assert patient["cohort"]["stay_policy"] == "first_per_patient"
+    assert cli.make_run_id(primary) != cli.make_run_id(patient)
+
+
 def test_cohort_stage_writes_canonical_artifacts(tmp_path, monkeypatch):
     patients = pd.DataFrame({
         "subject_id": [1], "anchor_age": [40], "anchor_year": [2100],

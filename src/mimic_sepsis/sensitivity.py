@@ -34,6 +34,7 @@ def cohort_policy_summary(
     admissions: pd.DataFrame,
     icustays: pd.DataFrame,
     *,
+    minimum_age: int = 18,
     policies: Sequence[str] = (
         StayPolicy.FIRST_PER_ADMISSION,
         StayPolicy.FIRST_PER_PATIENT,
@@ -45,7 +46,8 @@ def cohort_policy_summary(
     for raw_policy in policies:
         policy = StayPolicy(raw_policy)
         result = build_adult_icu_cohort(
-            patients, admissions, icustays, stay_policy=policy
+            patients, admissions, icustays,
+            minimum_age=minimum_age, stay_policy=policy,
         )
         rows.append({"policy": policy.value, **result.flow})
     return pd.DataFrame(rows)
