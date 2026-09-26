@@ -337,8 +337,10 @@ def build_label_stage(
     complete_stays = first_sepsis_episode_per_stay(complete_episodes)
     shock_sources = read_demo_tables(data_dir, ("labevents", "inputevents"))
     lactates = normalize_lactate(shock_sources["labevents"])
-    vasopressors = normalize_vasopressor_intervals(shock_sources["inputevents"])
     shock_config = config["septic_shock"]
+    vasopressors = normalize_vasopressor_intervals(
+        shock_sources["inputevents"], shock_config["vasopressors"]
+    )
     shock_stays = build_septic_shock_labels(
         sepsis_stays, lactates, vasopressors,
         lactate_threshold=shock_config["lactate_threshold_mmol_l"],

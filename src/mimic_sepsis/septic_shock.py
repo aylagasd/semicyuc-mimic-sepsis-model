@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import Iterable
 
 import pandas as pd
 
@@ -55,10 +56,23 @@ def normalize_lactate(events: pd.DataFrame) -> pd.DataFrame:
     ).reset_index(drop=True)
 
 
-def normalize_vasopressor_intervals(events: pd.DataFrame) -> pd.DataFrame:
-    """Return valid administration intervals for five Sepsis-3 vasopressors."""
+def normalize_vasopressor_intervals(
+    events: pd.DataFrame,
+    allowed_vasopressors: Iterable[str] | None = None,
+) -> pd.DataFrame:
+    """Return valid administration intervals for configured vasopressors."""
     _require(events, {"stay_id", "itemid", "starttime", "endtime"}, "events")
-    result = events.loc[events["itemid"].isin(VASOPRESSOR_ITEMS)].copy()
+    known = set(VASOPRESSOR_ITEMS.values())
+    allowed = known if allowed_vasopressors is None else {
+        str(name).strip().lower() for name in allowed_vasopressors
+    }
+    unknown = sorted(allowed - known)
+    if unknown:
+        raise ValueError("Unknown vasopressors: " + ", ".join(unknown))
+    itemids = {
+        itemid for itemid, name in VASOPRESSOR_ITEMS.items() if name in allowed
+    }
+    result = events.loc[events["itemid"].isin(itemids)].copy()
     result["starttime"] = pd.to_datetime(result["starttime"], errors="coerce")
     result["endtime"] = pd.to_datetime(result["endtime"], errors="coerce")
     result["vasopressor"] = result["itemid"].map(VASOPRESSOR_ITEMS)

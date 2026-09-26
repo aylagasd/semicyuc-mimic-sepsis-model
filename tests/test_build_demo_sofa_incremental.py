@@ -191,7 +191,9 @@ def test_label_stage_writes_all_audited_artifacts(tmp_path, monkeypatch):
         "labevents": pd.DataFrame(), "inputevents": pd.DataFrame(),
     })
     monkeypatch.setattr(cli, "normalize_lactate", lambda frame: pd.DataFrame())
-    monkeypatch.setattr(cli, "normalize_vasopressor_intervals", lambda frame: pd.DataFrame())
+    monkeypatch.setattr(
+        cli, "normalize_vasopressor_intervals", lambda frame, allowed: pd.DataFrame()
+    )
     shock = pd.DataFrame({"stay_id": [100], "septic_shock": [False]})
     monkeypatch.setattr(cli, "build_septic_shock_labels", lambda *args, **kwargs: shock)
 

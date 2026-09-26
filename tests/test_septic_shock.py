@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from mimic_sepsis.septic_shock import (
     SHOCK_COLUMNS, build_septic_shock_labels, normalize_lactate,
@@ -26,6 +27,18 @@ def test_five_vasopressors_are_recognized_without_dobutamine():
     result = normalize_vasopressor_intervals(events)
     assert len(result) == 5
     assert "dobutamine" not in set(result["vasopressor"])
+
+
+def test_configured_vasopressor_subset_is_effective_and_unknown_names_fail():
+    events = pd.DataFrame({
+        "stay_id": [1, 1], "itemid": [221906, 221749],
+        "starttime": ["2100-01-01"] * 2,
+        "endtime": ["2100-01-01 01:00"] * 2,
+    })
+    result = normalize_vasopressor_intervals(events, ["norepinephrine"])
+    assert result["vasopressor"].tolist() == ["norepinephrine"]
+    with pytest.raises(ValueError, match="Unknown vasopressors: dobutamine"):
+        normalize_vasopressor_intervals(events, ["dobutamine"])
 
 
 def test_shock_requires_strict_lactate_threshold_and_concurrency():
