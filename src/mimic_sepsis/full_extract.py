@@ -29,6 +29,7 @@ LABEVENT_ITEMIDS = frozenset(LAB_ITEMS) | frozenset(LAB_COMPONENTS) | {
     PAO2_ITEMID,
 } | frozenset(LACTATE_ITEMIDS)
 INPUTEVENT_ITEMIDS = frozenset(VASOACTIVE_ITEMS) | frozenset(VASOPRESSOR_ITEMS)
+EXTRACTOR_SCHEMA_VERSION = 9
 
 
 def _labevents_reduced_query() -> str:
@@ -57,6 +58,7 @@ class ExtractManifest:
     sha256: str
     data_version: str
     config_sha256: str
+    extractor_schema_version: int
 
 
 def _hash_file(path: Path) -> str:
@@ -105,7 +107,7 @@ class FullCSVExtractor:
             "backend": "duckdb-out-of-core-csv",
             "cohort_policy": self.stay_policy.value,
             "data_version": self.data_version,
-            "extractor_schema_version": 9,
+            "extractor_schema_version": EXTRACTOR_SCHEMA_VERSION,
             "minimum_age": self.minimum_age,
             "itemids": {
                 "chartevents": sorted(CHARTEVENT_ITEMIDS),
@@ -130,9 +132,19 @@ class FullCSVExtractor:
         target = self.output_dir / f"{name}.parquet"
         manifest_path = self.output_dir / f"{name}.manifest.json"
         if resume and target.is_file() and manifest_path.is_file():
-            raw = json.loads(manifest_path.read_text(encoding="utf-8"))
-            manifest = ExtractManifest(**{**raw, "columns": tuple(raw["columns"])})
-            if manifest.config_sha256 == self.config_hash and _hash_file(target) == manifest.sha256:
+            try:
+                raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest = ExtractManifest(**{
+                    **raw, "columns": tuple(raw["columns"]),
+                })
+            except (json.JSONDecodeError, KeyError, TypeError):
+                manifest = None
+            if (
+                manifest is not None
+                and manifest.extractor_schema_version == EXTRACTOR_SCHEMA_VERSION
+                and manifest.config_sha256 == self.config_hash
+                and _hash_file(target) == manifest.sha256
+            ):
                 return manifest
         temporary = self.output_dir / f".{name}.partial.parquet"
         temporary.unlink(missing_ok=True)
@@ -158,6 +170,7 @@ class FullCSVExtractor:
             sha256=_hash_file(target),
             data_version=self.data_version,
             config_sha256=self.config_hash,
+            extractor_schema_version=EXTRACTOR_SCHEMA_VERSION,
         )
         manifest_path.write_text(
             json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n",

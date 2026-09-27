@@ -140,6 +140,35 @@ def test_resume_reuses_valid_parts_and_corrupt_source_fails_closed(tmp_path):
         validate_extract(source)
 
 
+def test_extract_validation_rejects_obsolete_extractor_schema(tmp_path):
+    source = tmp_path / "extract"
+    _write_extract(source, _sources())
+    manifest_path = source / "labevents_reduced.manifest.json"
+    raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    raw["extractor_schema_version"] = 8
+    manifest_path.write_text(json.dumps(raw), encoding="utf-8")
+
+    with pytest.raises(ArtifactValidationError, match="extractor schema version"):
+        validate_extract(source)
+
+
+def test_extract_validation_checks_physical_schema_and_row_count(tmp_path):
+    source = tmp_path / "extract"
+    _write_extract(source, _sources())
+    manifest_path = source / "chartevents_reduced.manifest.json"
+    original = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    changed = {**original, "columns": [*original["columns"], "invented"]}
+    manifest_path.write_text(json.dumps(changed), encoding="utf-8")
+    with pytest.raises(ArtifactValidationError, match="schema mismatch"):
+        validate_extract(source)
+
+    changed = {**original, "rows": original["rows"] + 1}
+    manifest_path.write_text(json.dumps(changed), encoding="utf-8")
+    with pytest.raises(ArtifactValidationError, match="row count mismatch"):
+        validate_extract(source)
+
+
 def test_partition_manifest_rejects_noncanonical_part_name(tmp_path):
     source = tmp_path / "extract"
     _write_extract(source, _sources())

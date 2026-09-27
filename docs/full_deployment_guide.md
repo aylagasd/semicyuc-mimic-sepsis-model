@@ -139,7 +139,10 @@ Las fuentes hospitalarias como `labevents` se extraen una sola vez por ingreso
 hospitalario, aunque la política conserve varias estancias UCI del mismo
 ingreso. El extractor con `extractor_schema_version: 9` incorpora esta regla en
 su hash: al reanudar una extracción antigua, los derivados incompatibles se
-reconstruyen en lugar de reutilizarse.
+reconstruyen en lugar de reutilizarse. El pipeline posterior exige además esa
+versión en cada manifiesto y contrasta columnas y filas físicas; por tanto, una
+extracción antigua no puede saltarse la reconstrucción invocando directamente
+`build_full_pipeline_chunked.py`.
 
 La ejecución actualiza atómicamente
 `/ruta/derivados/full_pipeline/resource_report.json` tras cada etapa. El informe

@@ -63,6 +63,28 @@ def test_write_rebuilds_corrupt_artifact_and_cleans_failed_partial(tmp_path):
         connection.close()
 
 
+def test_resume_rebuilds_manifest_from_obsolete_extractor_schema(tmp_path):
+    extractor = _extractor(tmp_path)
+    connection = duckdb.connect()
+    try:
+        extractor._write(connection, "sample", "SELECT 1 AS value", resume=False)
+        manifest_path = extractor.output_dir / "sample.manifest.json"
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+        raw.pop("extractor_schema_version")
+        manifest_path.write_text(json.dumps(raw), encoding="utf-8")
+
+        rebuilt = extractor._write(
+            connection, "sample", "SELECT 2 AS value", resume=True
+        )
+        assert rebuilt.extractor_schema_version == 9
+        assert connection.execute(
+            "SELECT value FROM read_parquet(?)",
+            [str(extractor.output_dir / "sample.parquet")],
+        ).fetchone() == (2,)
+    finally:
+        connection.close()
+
+
 def test_manifest_does_not_contain_source_path(tmp_path):
     extractor = _extractor(tmp_path)
     connection = duckdb.connect()
@@ -74,8 +96,10 @@ def test_manifest_does_not_contain_source_path(tmp_path):
         (extractor.output_dir / "sample.manifest.json").read_text(encoding="utf-8")
     )
     assert set(raw) == {
-        "artifact", "columns", "config_sha256", "data_version", "rows", "sha256"
+        "artifact", "columns", "config_sha256", "data_version",
+        "extractor_schema_version", "rows", "sha256",
     }
+    assert raw["extractor_schema_version"] == 9
     assert str(extractor.data_dir) not in json.dumps(raw)
 
 

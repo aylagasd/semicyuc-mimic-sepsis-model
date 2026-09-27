@@ -16,7 +16,9 @@ import pandas as pd
 from .artifacts import ArtifactStore, ArtifactValidationError
 from .code_identity import detect_code_version
 from .duckdb_runtime import configure_duckdb, validate_duckdb_runtime
-from .full_extract import ExtractManifest, _hash_file, _sql_path
+from .full_extract import (
+    EXTRACTOR_SCHEMA_VERSION, ExtractManifest, _hash_file, _sql_path,
+)
 from .sofa_demo import build_demo_hourly_sofa
 
 
@@ -71,11 +73,28 @@ def validate_extract(source_dir: Path) -> dict[str, ExtractManifest]:
             raise FileNotFoundError(f"Missing reduced artifact or manifest: {name}")
         try:
             raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if raw.get("extractor_schema_version") != EXTRACTOR_SCHEMA_VERSION:
+                raise ArtifactValidationError(
+                    f"Unsupported extractor schema version: {name}"
+                )
             manifest = ExtractManifest(**{**raw, "columns": tuple(raw["columns"])})
         except (json.JSONDecodeError, KeyError, TypeError) as exc:
             raise ArtifactValidationError(f"Malformed extract manifest: {name}") from exc
         if manifest.artifact != name or _hash_file(data_path) != manifest.sha256:
             raise ArtifactValidationError(f"Extract checksum mismatch: {name}")
+        description = duckdb.sql(
+            "DESCRIBE SELECT * FROM read_parquet(?)", params=[str(data_path)]
+        ).fetchall()
+        physical_columns = tuple(str(row[0]) for row in description)
+        if physical_columns != manifest.columns:
+            raise ArtifactValidationError(f"Extract schema mismatch: {name}")
+        physical_rows = int(
+            duckdb.sql(
+                "SELECT count(*) FROM read_parquet(?)", params=[str(data_path)]
+            ).fetchone()[0]
+        )
+        if physical_rows != manifest.rows:
+            raise ArtifactValidationError(f"Extract row count mismatch: {name}")
         result[name] = manifest
         config_hashes.add(manifest.config_sha256)
         versions.add(manifest.data_version)
