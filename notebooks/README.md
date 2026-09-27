@@ -69,22 +69,20 @@ XDG_CACHE_HOME=.cache .tools/micromamba/micromamba run \
   notebooks/12_sensitivity_and_subgroups.ipynb
 ```
 
-La secuencia completa se ejecuta en orden lexicográfico desde la raíz del
-repositorio; cada notebook parte de un kernel nuevo y consume los artefactos
-persistidos por los anteriores:
+La secuencia completa se ejecuta desde la raíz del repositorio mediante el
+ejecutor versionado. Cada notebook parte de un kernel nuevo, consume los
+artefactos persistidos por los anteriores y escribe una copia ejecutada sin
+modificar el original:
 
 ```bash
-mkdir -p data/derived/notebook_runs
-for notebook in notebooks/[0-1][0-9]_*.ipynb; do
-  XDG_CACHE_HOME=.cache .tools/micromamba/micromamba run \
-    --root-prefix .micromamba -p .micromamba/envs/semicyuc \
-    jupyter nbconvert --to notebook --execute \
-    --ExecutePreprocessor.timeout=600 \
-    --output-dir data/derived/notebook_runs "$notebook" || break
-done
+python scripts/execute_notebooks.py
 ```
 
-El bucle se detiene en el primer error. `data/derived/notebook_runs/` está
+Para reanudar un tramo ya diagnosticado puede usarse, por ejemplo,
+`--start 7 --end 13`; no es un mecanismo de dependencia y presupone que sus
+entradas ya existen. El ejecutor exige una secuencia sin huecos, confina el
+estado escribible de Jupyter/IPython a directorios ignorados del proyecto y se
+detiene en el primer error. `data/derived/notebook_runs/` está
 ignorado por Git y debe tratarse como protegido: puede contener tablas y
 figuras agregadas que no se publican sin revisión. En MIMIC-IV completo, las
 puertas de protocolo siguen bloqueando test aunque se ejecute toda la secuencia.
