@@ -78,6 +78,8 @@ python scripts/audit_demo_cohort_policy_outcomes.py \
 Este segundo informe demuestra reconstrucción de extremo a extremo, pero sigue
 siendo una prueba de ingeniería del demo. No autoriza elegir una política por
 prevalencia o rendimiento y no cambia D002 a `frozen`.
+La procedencia conserva hashes de configuración, código y artefactos; no guarda
+rutas ni nombres locales de directorios que puedan revelar infraestructura.
 
 Para MIMIC-IV completo:
 

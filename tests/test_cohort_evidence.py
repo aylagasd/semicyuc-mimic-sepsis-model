@@ -128,7 +128,10 @@ def test_demo_policy_outcomes_validate_complete_runs_without_identifiers(tmp_pat
         "first_per_patient": [100],
         "all": [100, 101, 102],
     }
-    roots = {policy: tmp_path / policy for policy in policies}
+    private_marker = "private_institution_host"
+    roots = {
+        policy: tmp_path / private_marker / policy for policy in policies
+    }
     configs = {
         policy: _write_policy_run(roots[policy], policy, stay_ids[policy])
         for policy in policies
@@ -144,6 +147,7 @@ def test_demo_policy_outcomes_validate_complete_runs_without_identifiers(tmp_pat
     assert [row["selected_icu_stays"] for row in rows] == [2, 1, 3]
     assert all(row["sepsis3_stays"] == 1 for row in rows)
     assert content["clinical_status_mutated"] is False
+    assert private_marker not in str(content)
     for table in content["tables"].values():
         assert not ({"subject_id", "hadm_id", "stay_id"} & set(table[0]))
 

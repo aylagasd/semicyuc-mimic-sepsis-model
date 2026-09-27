@@ -297,7 +297,6 @@ def build_demo_policy_outcome_evidence(
             "feature_rows_all_targets_partitions": feature_rows,
         })
         provenance[policy] = {
-            "run_id": root.name,
             "config_sha256": next(iter(config_hashes)),
             "code_version": next(iter(code_versions)),
             "artifact_sha256": {
