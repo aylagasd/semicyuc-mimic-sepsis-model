@@ -3,8 +3,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from mimic_sepsis.artifacts import ArtifactStore
 from mimic_sepsis.cohort_evidence import (
-    build_cohort_policy_evidence,
+    POLICY_PIPELINE_ARTIFACTS, build_cohort_policy_evidence,
+    build_demo_policy_outcome_evidence,
     load_cohort_sources,
 )
 
@@ -90,3 +92,77 @@ def test_cohort_source_loader_projects_columns_and_hashes(tmp_path):
 def test_cohort_source_loader_fails_before_partial_read(tmp_path):
     with pytest.raises(FileNotFoundError, match="admissions"):
         load_cohort_sources(tmp_path)
+
+
+def _write_policy_run(root, policy, stay_ids):
+    config = {"cohort": {"stay_policy": policy}}
+    cohort = pd.DataFrame({
+        "subject_id": list(range(1, len(stay_ids) + 1)),
+        "hadm_id": list(range(10, 10 + len(stay_ids))),
+        "stay_id": stay_ids,
+    })
+    frames = {
+        "cohort_stays": cohort,
+        "sofa_hourly": pd.DataFrame({"stay_id": [stay_ids[0]]}),
+        "suspected_infection_pairs": pd.DataFrame({"hadm_id": [10]}),
+        "sepsis_stays": pd.DataFrame({"stay_id": [stay_ids[0]]}),
+        "septic_shock_stays": pd.DataFrame({
+            "stay_id": [stay_ids[0]], "septic_shock": [True],
+        }),
+    }
+    for directory, names in POLICY_PIPELINE_ARTIFACTS.items():
+        store = ArtifactStore(root / directory)
+        for name in names:
+            frame = frames.get(name, pd.DataFrame({"synthetic_row": [1]}))
+            store.write_dataframe(
+                name, frame, data_version="2.2",
+                code_version="test-commit", config=config,
+            )
+    return config
+
+
+def test_demo_policy_outcomes_validate_complete_runs_without_identifiers(tmp_path):
+    policies = ["first_per_admission", "first_per_patient", "all"]
+    stay_ids = {
+        "first_per_admission": [100, 101],
+        "first_per_patient": [100],
+        "all": [100, 101, 102],
+    }
+    roots = {policy: tmp_path / policy for policy in policies}
+    configs = {
+        policy: _write_policy_run(roots[policy], policy, stay_ids[policy])
+        for policy in policies
+    }
+
+    content = build_demo_policy_outcome_evidence(
+        roots,
+        expected_configs=configs,
+        protocol_status={"D002": "provisional"},
+    )
+
+    rows = content["tables"]["downstream_policy_comparison"]
+    assert [row["selected_icu_stays"] for row in rows] == [2, 1, 3]
+    assert all(row["sepsis3_stays"] == 1 for row in rows)
+    assert content["clinical_status_mutated"] is False
+    for table in content["tables"].values():
+        assert not ({"subject_id", "hadm_id", "stay_id"} & set(table[0]))
+
+
+def test_demo_policy_outcomes_reject_non_nested_complete_runs(tmp_path):
+    policies = ["first_per_admission", "first_per_patient", "all"]
+    stay_ids = {
+        "first_per_admission": [100],
+        "first_per_patient": [999],
+        "all": [100, 999],
+    }
+    roots = {policy: tmp_path / policy for policy in policies}
+    configs = {
+        policy: _write_policy_run(roots[policy], policy, stay_ids[policy])
+        for policy in policies
+    }
+    with pytest.raises(ValueError, match="nesting"):
+        build_demo_policy_outcome_evidence(
+            roots,
+            expected_configs=configs,
+            protocol_status={"D002": "provisional"},
+        )

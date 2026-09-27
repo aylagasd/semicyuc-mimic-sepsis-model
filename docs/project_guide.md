@@ -295,7 +295,10 @@ describen en
 [`suspected_infection_sensitivity_contract.md`](suspected_infection_sensitivity_contract.md).
 
 La política de cohorte se revisa por separado, reconstruyendo las tres opciones
-desde las tablas fuente mediante `scripts/audit_cohort_policy_freeze.py`; véase
+desde las tablas fuente mediante `scripts/audit_cohort_policy_freeze.py`. Tras
+ejecutar tres pipelines demo completos,
+`scripts/audit_demo_cohort_policy_outcomes.py` valida sus artefactos y compara
+solo recuentos agregados; véase
 [`cohort_policy_evidence.md`](cohort_policy_evidence.md).
 
 ### 8.3 Jupyter

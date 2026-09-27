@@ -53,6 +53,34 @@ La comparación anterior cubre selección y flujo. Para ejecutar después
 fenotipo/modelo bajo una política alternativa, la política forma parte del hash
 de configuración y debe tener una raíz distinta:
 
+En el demo se construyen primero las tres raíces completas:
+
+```bash
+for policy in first_per_admission first_per_patient all; do
+  python scripts/build_demo_sofa_incremental.py \
+    --stay-policy "$policy" --stage all \
+    --output-root "data/derived/policy_runs/$policy" --resume
+done
+```
+
+Después, el informe protegido valida checksums y configuración de cohorte,
+SOFA, etiquetas, los seis artefactos de landmarks y los seis de features de
+cada raíz. También comprueba el anidamiento de estancias y que shock evalúe
+exactamente las estancias Sepsis-3. Solo entonces escribe recuentos agregados:
+
+```bash
+python scripts/audit_demo_cohort_policy_outcomes.py \
+  --first-per-admission data/derived/policy_runs/first_per_admission/<run_id> \
+  --first-per-patient data/derived/policy_runs/first_per_patient/<run_id> \
+  --all data/derived/policy_runs/all/<run_id>
+```
+
+Este segundo informe demuestra reconstrucción de extremo a extremo, pero sigue
+siendo una prueba de ingeniería del demo. No autoriza elegir una política por
+prevalencia o rendimiento y no cambia D002 a `frozen`.
+
+Para MIMIC-IV completo:
+
 ```bash
 python scripts/extract_full_mimic.py /ruta/mimiciv/3.1 \
   --data-version 3.1 --stay-policy first_per_patient \
