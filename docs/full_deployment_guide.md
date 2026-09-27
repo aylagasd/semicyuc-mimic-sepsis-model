@@ -135,6 +135,12 @@ Python calcula las ventanas exactas de forma vectorizada. `--batch-size`,
 un benchmark registrado; no deben cambiarse a ciegas durante una ejecución
 científica.
 
+Las fuentes hospitalarias como `labevents` se extraen una sola vez por ingreso
+hospitalario, aunque la política conserve varias estancias UCI del mismo
+ingreso. El extractor con `extractor_schema_version: 9` incorpora esta regla en
+su hash: al reanudar una extracción antigua, los derivados incompatibles se
+reconstruyen en lugar de reutilizarse.
+
 La ejecución actualiza atómicamente
 `/ruta/derivados/full_pipeline/resource_report.json` tras cada etapa. El informe
 solo contiene métricas agregadas de recursos y queda disponible incluso si una

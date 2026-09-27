@@ -31,6 +31,24 @@ LABEVENT_ITEMIDS = frozenset(LAB_ITEMS) | frozenset(LAB_COMPONENTS) | {
 INPUTEVENT_ITEMIDS = frozenset(VASOACTIVE_ITEMS) | frozenset(VASOPRESSOR_ITEMS)
 
 
+def _labevents_reduced_query() -> str:
+    """Return the cohort-scoped lab query without multiplying hospital events.
+
+    ``labevents`` is keyed to a hospital admission rather than an ICU stay.  A
+    cohort that retains every ICU stay can therefore contain the same
+    ``(subject_id, hadm_id)`` more than once.  Joining against distinct
+    admissions preserves the source-event cardinality.
+    """
+    return f"""
+        SELECT e.subject_id, e.hadm_id, e.itemid, e.charttime,
+               e.storetime, e.valuenum, e.valueuom
+        FROM labevents e JOIN
+          (SELECT DISTINCT subject_id, hadm_id FROM cohort) c
+        USING (subject_id, hadm_id)
+        WHERE e.itemid IN ({_ids(LABEVENT_ITEMIDS)})
+    """
+
+
 @dataclass(frozen=True)
 class ExtractManifest:
     artifact: str
@@ -87,7 +105,7 @@ class FullCSVExtractor:
             "backend": "duckdb-out-of-core-csv",
             "cohort_policy": self.stay_policy.value,
             "data_version": self.data_version,
-            "extractor_schema_version": 8,
+            "extractor_schema_version": 9,
             "minimum_age": self.minimum_age,
             "itemids": {
                 "chartevents": sorted(CHARTEVENT_ITEMIDS),
@@ -240,12 +258,7 @@ class FullCSVExtractor:
                     FROM chartevents e JOIN cohort c USING (stay_id)
                     WHERE e.itemid IN ({_ids(CHARTEVENT_ITEMIDS)})
                 """,
-                "labevents_reduced": f"""
-                    SELECT e.subject_id, e.hadm_id, e.itemid, e.charttime,
-                           e.storetime, e.valuenum, e.valueuom
-                    FROM labevents e JOIN cohort c USING (subject_id, hadm_id)
-                    WHERE e.itemid IN ({_ids(LABEVENT_ITEMIDS)})
-                """,
+                "labevents_reduced": _labevents_reduced_query(),
                 "inputevents_reduced": f"""
                     SELECT e.stay_id, e.itemid, e.starttime, e.endtime,
                            e.rate, e.rateuom

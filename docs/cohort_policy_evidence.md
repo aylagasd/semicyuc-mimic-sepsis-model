@@ -94,3 +94,18 @@ raíces entre políticas. Cada extracción alimenta su propio pipeline por lotes
 la partición, los landmarks, las etiquetas y las características se reconstruyen
 completamente. La comparación de métricas se mantiene en development/validation
 y nunca se usa para elegir una política mirando el test.
+
+La extracción fuera de memoria conserva la granularidad de cada tabla fuente.
+En particular, `labevents` pertenece al ingreso hospitalario: se restringe
+contra pares `(subject_id, hadm_id)` únicos y solo después se atribuye cada
+muestra a una estancia mediante su `charttime`. Unir directamente laboratorios
+con todas las filas de estancia multiplicaría mediciones cuando un ingreso
+contiene más de una UCI y alteraría recuentos, desviaciones y pendientes de las
+features. El esquema 9 del extractor corrige y versiona esta invariancia.
+
+Como prueba de ingeniería, las políticas `first_per_admission`,
+`first_per_patient` y `all` se ejecutaron en Demo 2.2 por ambos recorridos. El
+verificador D022 confirmó igualdad exacta de esquema y multiconjunto para
+cohorte, SOFA, diez artefactos de etiquetas, seis de landmarks y seis de
+features. Esta comprobación no sustituye la reconstrucción ni la revisión de
+recuentos en MIMIC-IV completo.

@@ -3,7 +3,9 @@ import json
 import duckdb
 import pytest
 
-from mimic_sepsis.full_extract import FullCSVExtractor, _hash_file
+from mimic_sepsis.full_extract import (
+    FullCSVExtractor, _hash_file, _labevents_reduced_query,
+)
 
 
 def _extractor(tmp_path):
@@ -106,3 +108,26 @@ def test_extract_rejects_invalid_cohort_configuration(tmp_path):
             tmp_path / "source", tmp_path / "derived",
             data_version="test", stay_policy="unreviewed",
         )
+
+
+def test_labevents_query_does_not_multiply_events_for_multiple_icu_stays():
+    connection = duckdb.connect()
+    try:
+        connection.execute("""
+            CREATE TABLE cohort(subject_id INTEGER, hadm_id INTEGER, stay_id INTEGER);
+            INSERT INTO cohort VALUES (1, 10, 100), (1, 10, 101);
+            CREATE TABLE labevents(
+                subject_id INTEGER, hadm_id INTEGER, itemid INTEGER,
+                charttime TIMESTAMP, storetime TIMESTAMP,
+                valuenum DOUBLE, valueuom VARCHAR
+            );
+            INSERT INTO labevents VALUES (
+                1, 10, 50912, TIMESTAMP '2100-01-01 01:00:00',
+                TIMESTAMP '2100-01-01 02:00:00', 1.2, 'mg/dL'
+            );
+        """)
+        result = connection.execute(_labevents_reduced_query()).fetchall()
+    finally:
+        connection.close()
+
+    assert len(result) == 1

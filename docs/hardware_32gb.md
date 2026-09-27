@@ -105,6 +105,13 @@ de preparación de 0,198 a 0,087 s. Las seis matrices completas del demo —dos
 outcomes por tres particiones— conservaron equivalencia exacta de multiconjunto
 frente al backend anterior.
 
+La equivalencia se repitió además para las tres políticas de estancia. La
+variante `all` detectó y permitió corregir una multiplicación de laboratorios al
+restringir una tabla por ingreso contra varias estancias del mismo ingreso. Con
+el enlace contra ingresos únicos, sus 24 artefactos comparados —SOFA, etiquetas,
+landmarks y features— quedaron sin diferencias bidireccionales incluso con un
+límite DuckDB de 1 GB y dos hilos.
+
 En el recorrido completo del demo, con lote 100, límite DuckDB de 1 GB y dos
 hilos en la Raspberry, reutilizar la fuente por lote y vectorizar los índices de
 ventana redujo primero la etapa de features de 97,3 a 63,1 s (35,1 %) en el
