@@ -48,6 +48,7 @@ def notebook_environment(project_root: Path) -> dict[str, str]:
     environment = os.environ.copy()
     for name, path in locations.items():
         path.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path.chmod(0o700)
         environment[name] = str(path)
     return environment
 
@@ -68,6 +69,7 @@ def execute_notebooks(
     if not destination.is_absolute():
         destination = root / destination
     destination.mkdir(parents=True, exist_ok=True, mode=0o700)
+    destination.chmod(0o700)
     environment = notebook_environment(root)
     for notebook in notebooks:
         source = Path(notebook).resolve()

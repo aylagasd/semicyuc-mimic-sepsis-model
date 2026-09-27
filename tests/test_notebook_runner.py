@@ -1,4 +1,5 @@
 from pathlib import Path
+import stat
 from types import SimpleNamespace
 
 import pytest
@@ -32,6 +33,8 @@ def test_discovery_rejects_duplicate_numbers(tmp_path):
 
 
 def test_environment_is_confined_to_project(tmp_path):
+    existing_cache = tmp_path / ".cache"
+    existing_cache.mkdir(mode=0o755)
     environment = notebook_environment(tmp_path)
     for name in (
         "XDG_CACHE_HOME", "IPYTHONDIR", "JUPYTER_CONFIG_DIR",
@@ -40,6 +43,7 @@ def test_environment_is_confined_to_project(tmp_path):
         path = Path(environment[name])
         assert path.is_dir()
         path.relative_to(tmp_path)
+        assert stat.S_IMODE(path.stat().st_mode) == 0o700
 
 
 def test_execution_uses_clean_nbconvert_command_and_stops_on_failure(
@@ -72,3 +76,4 @@ def test_execution_uses_clean_nbconvert_command_and_stops_on_failure(
     assert "--ExecutePreprocessor.timeout=123" in calls[0][0]
     assert calls[0][1]["check"] is True
     assert calls[0][1]["cwd"] == tmp_path.resolve()
+    assert stat.S_IMODE((tmp_path / "derived").stat().st_mode) == 0o700
