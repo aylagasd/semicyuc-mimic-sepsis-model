@@ -30,6 +30,12 @@ SOURCE_ARTIFACTS = (
     "outputevents_reduced",
     "procedureevents_reduced",
 )
+LABEL_SOURCE_ARTIFACTS = (
+    "prescriptions_cohort",
+    "emar_cohort",
+    "microbiology_cohort",
+)
+PIPELINE_SOURCE_ARTIFACTS = SOURCE_ARTIFACTS + LABEL_SOURCE_ARTIFACTS
 
 
 @dataclass(frozen=True)
@@ -61,12 +67,18 @@ def _canonical_hash(value: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def validate_extract(source_dir: Path) -> dict[str, ExtractManifest]:
+def validate_extract(
+    source_dir: Path,
+    artifacts: Sequence[str] = SOURCE_ARTIFACTS,
+) -> dict[str, ExtractManifest]:
     """Validate all required reduced artifacts without reading clinical rows."""
+    names = tuple(artifacts)
+    if not names or len(names) != len(set(names)):
+        raise ValueError("extract artifacts must be non-empty and unique")
     result: dict[str, ExtractManifest] = {}
     config_hashes: set[str] = set()
     versions: set[str] = set()
-    for name in SOURCE_ARTIFACTS:
+    for name in names:
         data_path = source_dir / f"{name}.parquet"
         manifest_path = source_dir / f"{name}.manifest.json"
         if not data_path.is_file() or not manifest_path.is_file():

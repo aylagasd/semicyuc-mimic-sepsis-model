@@ -17,8 +17,8 @@ from .antimicrobials import (
 )
 from .artifacts import ArtifactStore, ArtifactValidationError
 from .chunked_sofa import (
-    PartitionedDatasetManifest, _canonical_hash, validate_extract,
-    validate_partitioned_dataset,
+    PIPELINE_SOURCE_ARTIFACTS, PartitionedDatasetManifest, _canonical_hash,
+    validate_extract, validate_partitioned_dataset,
 )
 from .duckdb_runtime import configure_duckdb, validate_duckdb_runtime
 from .full_extract import _sql_path
@@ -103,7 +103,7 @@ class ChunkedLabelBuilder:
     ) -> dict[str, Any]:
         return {
             "backend": "partitioned-pandas-labels",
-            "chunked_label_schema_version": 6,
+            "chunked_label_schema_version": 7,
             "code_version": self.code_version,
             "duckdb_memory_limit": self.duckdb_memory_limit,
             "duckdb_threads": self.duckdb_threads,
@@ -137,7 +137,9 @@ class ChunkedLabelBuilder:
         ).fetchdf()
 
     def run(self, *, resume: bool = False) -> dict[str, PartitionedDatasetManifest]:
-        sources = validate_extract(self.source_dir)
+        sources = validate_extract(
+            self.source_dir, artifacts=PIPELINE_SOURCE_ARTIFACTS
+        )
         sofa_manifest = validate_partitioned_dataset(self.sofa_run, "sofa_hourly")
         config = self._configuration(
             {name: item.sha256 for name, item in sources.items()}, sofa_manifest

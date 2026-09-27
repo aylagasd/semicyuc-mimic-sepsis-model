@@ -13,9 +13,11 @@ from typing import Callable, TypeVar
 from mimic_sepsis.chunked_features import ChunkedFeatureBuilder
 from mimic_sepsis.chunked_labels import ChunkedLabelBuilder
 from mimic_sepsis.chunked_landmarks import ChunkedLandmarkBuilder, PARTITIONS
-from mimic_sepsis.chunked_sofa import ChunkedSofaBuilder, detect_code_version
+from mimic_sepsis.chunked_sofa import (
+    PIPELINE_SOURCE_ARTIFACTS, ChunkedSofaBuilder, detect_code_version,
+    validate_extract,
+)
 from mimic_sepsis.deployment import preflight_protocol_status
-from mimic_sepsis.chunked_sofa import validate_extract
 from mimic_sepsis.resource_telemetry import (
     StageResourceMonitor, write_resource_report,
 )
@@ -77,7 +79,9 @@ def main() -> int:
         if args.duckdb_threads is not None
         else int(compute_profile["maximum_parallel_workers"])
     )
-    sources = validate_extract(args.source_dir)
+    sources = validate_extract(
+        args.source_dir, artifacts=PIPELINE_SOURCE_ARTIFACTS
+    )
     data_version = next(iter(sources.values())).data_version
     partitions = PARTITIONS
     if data_version != "2.2":

@@ -143,6 +143,10 @@ reconstruyen en lugar de reutilizarse. El pipeline posterior exige además esa
 versión en cada manifiesto y contrasta columnas y filas físicas; por tanto, una
 extracción antigua no puede saltarse la reconstrucción invocando directamente
 `build_full_pipeline_chunked.py`.
+El preflight valida las nueve fuentes que consumen SOFA y las etiquetas,
+incluidas prescripciones, EMAR y microbiología. Sus checksums forman parte de
+la identidad de la etapa de etiquetas: modificar cualquiera de ellas invalida
+de manera determinista todos sus descendientes.
 
 La ejecución actualiza atómicamente
 `/ruta/derivados/full_pipeline/resource_report.json` tras cada etapa. El informe

@@ -8,8 +8,9 @@ import pytest
 
 from mimic_sepsis.artifacts import ArtifactValidationError
 from mimic_sepsis.chunked_sofa import (
-    ChunkedSofaBuilder, partitioned_dataset_sha256, read_partitioned_dataset,
-    validate_extract, validate_partitioned_dataset,
+    PIPELINE_SOURCE_ARTIFACTS, ChunkedSofaBuilder,
+    partitioned_dataset_sha256, read_partitioned_dataset, validate_extract,
+    validate_partitioned_dataset,
 )
 from mimic_sepsis.equivalence import compare_parquet
 from mimic_sepsis.full_extract import FullCSVExtractor
@@ -167,6 +168,19 @@ def test_extract_validation_checks_physical_schema_and_row_count(tmp_path):
     manifest_path.write_text(json.dumps(changed), encoding="utf-8")
     with pytest.raises(ArtifactValidationError, match="row count mismatch"):
         validate_extract(source)
+
+
+def test_full_pipeline_validation_requires_label_sources(tmp_path):
+    source = tmp_path / "extract"
+    _write_extract(source, _sources())
+    with pytest.raises(FileNotFoundError, match="prescriptions_cohort"):
+        validate_extract(source, artifacts=PIPELINE_SOURCE_ARTIFACTS)
+
+
+def test_extract_validation_rejects_empty_or_duplicate_artifact_contract(tmp_path):
+    for artifacts in ((), ("cohort_stays", "cohort_stays")):
+        with pytest.raises(ValueError, match="non-empty and unique"):
+            validate_extract(tmp_path, artifacts=artifacts)
 
 
 def test_partition_manifest_rejects_noncanonical_part_name(tmp_path):
