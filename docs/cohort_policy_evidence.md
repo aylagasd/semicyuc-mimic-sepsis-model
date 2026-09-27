@@ -102,6 +102,10 @@ muestra a una estancia mediante su `charttime`. Unir directamente laboratorios
 con todas las filas de estancia multiplicaría mediciones cuando un ingreso
 contiene más de una UCI y alteraría recuentos, desviaciones y pendientes de las
 features. El esquema 9 del extractor corrige y versiona esta invariancia.
+La etapa por lotes aplica la misma regla al seleccionar prescripciones, EMAR,
+microbiología y laboratorios para un lote: crea primero el conjunto de ingresos
+únicos. Las fuentes ligadas directamente a UCI se restringen por `stay_id`
+único.
 
 Como prueba de ingeniería, las políticas `first_per_admission`,
 `first_per_patient` y `all` se ejecutaron en Demo 2.2 por ambos recorridos. El

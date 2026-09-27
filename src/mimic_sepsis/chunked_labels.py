@@ -103,7 +103,7 @@ class ChunkedLabelBuilder:
     ) -> dict[str, Any]:
         return {
             "backend": "partitioned-pandas-labels",
-            "chunked_label_schema_version": 7,
+            "chunked_label_schema_version": 8,
             "code_version": self.code_version,
             "duckdb_memory_limit": self.duckdb_memory_limit,
             "duckdb_threads": self.duckdb_threads,
@@ -128,12 +128,24 @@ class ChunkedLabelBuilder:
         }
 
     def _read_for_batch(
-        self, connection: duckdb.DuckDBPyConnection, artifact: str, join: str
+        self,
+        connection: duckdb.DuckDBPyConnection,
+        artifact: str,
+        *,
+        scope: str,
     ) -> pd.DataFrame:
+        if scope == "admission":
+            batch = "(SELECT DISTINCT subject_id, hadm_id FROM _batch)"
+            join = "USING(subject_id, hadm_id)"
+        elif scope == "stay":
+            batch = "(SELECT DISTINCT stay_id FROM _batch)"
+            join = "USING(stay_id)"
+        else:
+            raise ValueError("source scope must be admission or stay")
         path = _sql_path(self.source_dir / f"{artifact}.parquet")
         return connection.execute(
             f"SELECT source.* FROM read_parquet('{path}') source "
-            f"JOIN _batch {join}"
+            f"JOIN {batch} {join}"
         ).fetchdf()
 
     def run(self, *, resume: bool = False) -> dict[str, PartitionedDatasetManifest]:
@@ -217,13 +229,13 @@ class ChunkedLabelBuilder:
                 )
 
                 prescriptions = self._read_for_batch(
-                    connection, "prescriptions_cohort", "USING(subject_id,hadm_id)"
+                    connection, "prescriptions_cohort", scope="admission"
                 )
                 emar = self._read_for_batch(
-                    connection, "emar_cohort", "USING(subject_id,hadm_id)"
+                    connection, "emar_cohort", scope="admission"
                 )
                 microbiology = self._read_for_batch(
-                    connection, "microbiology_cohort", "USING(subject_id,hadm_id)"
+                    connection, "microbiology_cohort", scope="admission"
                 )
                 classified = classify_prescriptions(prescriptions, rules)
                 confirmed = confirm_administrations(classified, emar)
@@ -314,13 +326,13 @@ class ChunkedLabelBuilder:
                 )
                 lactates = normalize_lactate(
                     self._read_for_batch(
-                        connection, "labevents_reduced", "USING(subject_id,hadm_id)"
+                        connection, "labevents_reduced", scope="admission"
                     ),
                     shock_config["lactate_itemids"],
                 )
                 vasopressors = normalize_vasopressor_intervals(
                     self._read_for_batch(
-                        connection, "inputevents_reduced", "USING(stay_id)"
+                        connection, "inputevents_reduced", scope="stay"
                     ),
                     shock_config["vasopressors"],
                 )
