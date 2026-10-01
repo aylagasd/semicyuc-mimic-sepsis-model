@@ -177,6 +177,18 @@ def test_full_pipeline_validation_requires_label_sources(tmp_path):
         validate_extract(source, artifacts=PIPELINE_SOURCE_ARTIFACTS)
 
 
+def test_extract_validation_rejects_missing_required_physical_column(tmp_path):
+    frames = _sources()
+    frames["chartevents_reduced"] = frames["chartevents_reduced"].drop(
+        columns="valuenum"
+    )
+    source = tmp_path / "extract"
+    _write_extract(source, frames)
+
+    with pytest.raises(ArtifactValidationError, match="valuenum"):
+        validate_extract(source)
+
+
 def test_extract_validation_rejects_empty_or_duplicate_artifact_contract(tmp_path):
     for artifacts in ((), ("cohort_stays", "cohort_stays")):
         with pytest.raises(ValueError, match="non-empty and unique"):

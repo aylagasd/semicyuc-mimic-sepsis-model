@@ -36,6 +36,32 @@ LABEL_SOURCE_ARTIFACTS = (
     "microbiology_cohort",
 )
 PIPELINE_SOURCE_ARTIFACTS = SOURCE_ARTIFACTS + LABEL_SOURCE_ARTIFACTS
+REQUIRED_EXTRACT_COLUMNS = {
+    "cohort_stays": {"subject_id", "hadm_id", "stay_id", "intime", "outtime"},
+    "chartevents_reduced": {
+        "stay_id", "itemid", "charttime", "value", "valuenum",
+    },
+    "labevents_reduced": {
+        "subject_id", "hadm_id", "itemid", "charttime", "storetime",
+        "valuenum", "valueuom",
+    },
+    "inputevents_reduced": {
+        "stay_id", "itemid", "starttime", "endtime", "rate", "rateuom",
+    },
+    "outputevents_reduced": {"stay_id", "itemid", "charttime", "value"},
+    "procedureevents_reduced": {"stay_id", "itemid", "starttime", "endtime"},
+    "prescriptions_cohort": {
+        "subject_id", "hadm_id", "pharmacy_id", "starttime", "drug_type",
+        "drug", "route",
+    },
+    "emar_cohort": {
+        "subject_id", "hadm_id", "pharmacy_id", "charttime", "event_txt",
+    },
+    "microbiology_cohort": {
+        "subject_id", "hadm_id", "micro_specimen_id", "charttime",
+        "chartdate", "spec_type_desc",
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -100,6 +126,13 @@ def validate_extract(
         physical_columns = tuple(str(row[0]) for row in description)
         if physical_columns != manifest.columns:
             raise ArtifactValidationError(f"Extract schema mismatch: {name}")
+        missing = sorted(
+            REQUIRED_EXTRACT_COLUMNS.get(name, set()) - set(physical_columns)
+        )
+        if missing:
+            raise ArtifactValidationError(
+                f"Extract lacks required columns ({name}): {', '.join(missing)}"
+            )
         physical_rows = int(
             duckdb.sql(
                 "SELECT count(*) FROM read_parquet(?)", params=[str(data_path)]

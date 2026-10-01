@@ -147,6 +147,8 @@ El preflight valida las nueve fuentes que consumen SOFA y las etiquetas,
 incluidas prescripciones, EMAR y microbiología. Sus checksums forman parte de
 la identidad de la etapa de etiquetas: modificar cualquiera de ellas invalida
 de manera determinista todos sus descendientes.
+También contrasta un contrato mínimo de columnas por tabla; un extracto íntegro
+pero incompleto falla antes de iniciar cualquier etapa clínica.
 
 La ejecución actualiza atómicamente
 `/ruta/derivados/full_pipeline/resource_report.json` tras cada etapa. El informe
