@@ -141,8 +141,15 @@ python scripts/validate_pipeline_resources.py \
 
 Devuelve código 0 solo si terminaron en orden las cuatro etapas, el hash y los
 parámetros coinciden con el perfil, el pico RSS no supera 24 GiB, el kernel pudo
-informar memoria y no se observó swap del proceso. El espacio libre y el swap
-global del sistema continúan siendo controles operativos adicionales.
+informar memoria, no se observó swap del proceso y cada etapa materializó bytes
+nuevos. Una reanudación que solo verifica artefactos no sirve como benchmark de
+capacidad. Si `--resume` encuentra ya un `resource_report.json`, conserva ese
+informe canónico y escribe la telemetría nueva en
+`resource_report.resume.json`. Solo una corrida que materialice las cuatro
+etapas desde una raíz de salida vacía puede reemplazar el informe canónico y
+superar la puerta de capacidad; una recuperación parcial tampoco equivale a un
+benchmark completo. El espacio libre y el swap global del sistema continúan
+siendo controles operativos adicionales.
 
 El test continúa sin materializarse hasta completar las firmas y el congelado
 del modelo descritos en la guía de despliegue.

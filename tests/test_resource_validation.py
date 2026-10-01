@@ -34,6 +34,8 @@ def _payload():
                 "error_type": None,
                 "rows": 1,
                 "parts": 1,
+                "output_bytes": 1024,
+                "output_bytes_added": 1024,
                 "peak_rss_bytes": 2 * 1024**3,
                 "peak_swap_bytes": 0,
             }
@@ -91,3 +93,32 @@ def test_resource_gate_rejects_missing_aggregate_counts():
     del payload["stages"][0]["rows"]
     with pytest.raises(ValueError, match="aggregate counts"):
         _audit(payload)
+
+
+def test_resource_gate_rejects_resume_without_stage_materialization():
+    payload = _payload()
+    payload["runtime"]["resume"] = True
+    for stage in payload["stages"]:
+        stage["output_bytes_added"] = 0
+    result = _audit(payload)
+
+    assert not result.ready
+    assert not result.all_stages_materialized
+    assert "stage:sofa:no_materialization" in result.blockers
+
+
+def test_resource_gate_requires_materialization_counts():
+    payload = _payload()
+    del payload["stages"][0]["output_bytes_added"]
+    with pytest.raises(ValueError, match="materialization counts"):
+        _audit(payload)
+
+
+def test_resource_gate_rejects_partial_resume_measurement():
+    payload = _payload()
+    payload["runtime"]["resume"] = True
+    payload["stages"][1]["output_bytes"] = 2048
+    result = _audit(payload)
+
+    assert not result.ready
+    assert "stage:labels:no_materialization" in result.blockers

@@ -35,9 +35,11 @@ def test_resource_validator_cli_reports_only_aggregate_decision(
                 "stage": name,
                 "status": "completed",
                 "error_type": None,
-                "rows": 10,
-                "parts": 2,
-                "peak_rss_bytes": 1024**3,
+                    "rows": 10,
+                    "parts": 2,
+                    "output_bytes": 4096,
+                    "output_bytes_added": 4096,
+                    "peak_rss_bytes": 1024**3,
                 "peak_swap_bytes": 0,
             }
             for name in ("sofa", "labels", "landmarks", "features")

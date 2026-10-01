@@ -27,6 +27,24 @@ from mimic_sepsis.test_access import validate_test_release
 T = TypeVar("T")
 
 
+def select_resource_report_path(path: Path, *, resume: bool) -> Path:
+    """Keep the canonical materialization report when recording a resume."""
+    target = Path(path)
+    if resume and target.exists():
+        return target.with_name(f"{target.stem}.resume{target.suffix}")
+    return target
+
+
+def fully_materialized_report(stages: list[dict]) -> bool:
+    """Return whether every pipeline stage was materialized from an empty root."""
+    return len(stages) == 4 and all(
+        int(stage.get("output_bytes_added", 0)) > 0
+        and int(stage.get("output_bytes_added", 0))
+        == int(stage.get("output_bytes", -1))
+        for stage in stages
+    )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source_dir", type=Path)
@@ -114,7 +132,12 @@ def main() -> int:
                 return 2
             partitions = PARTITIONS
     code_version = args.code_version or detect_code_version(repo)
-    report_path = args.resource_report or args.output_root / "resource_report.json"
+    canonical_report_path = (
+        args.resource_report or args.output_root / "resource_report.json"
+    )
+    report_path = select_resource_report_path(
+        canonical_report_path, resume=args.resume
+    )
     profile_sha256 = hashlib.sha256(profile_path.read_bytes()).hexdigest()
     stage_measurements: list[dict] = []
 
@@ -212,6 +235,12 @@ def main() -> int:
         ).run(resume=args.resume),
     )
     persist_report(completed=True)
+    if (
+        report_path != canonical_report_path
+        and fully_materialized_report(stage_measurements)
+    ):
+        report_path.replace(canonical_report_path)
+        report_path = canonical_report_path
     print(json.dumps({
         "sofa": {"run_id": sofa_run.name, "rows": sofa.rows},
         "labels": {name: item.rows for name, item in labels.items()},
@@ -223,6 +252,9 @@ def main() -> int:
             "duckdb_threads": duckdb_threads,
         },
         "materialized_partitions": list(partitions),
+        "resource_report_kind": (
+            "resume" if report_path != canonical_report_path else "canonical"
+        ),
         "resource_report_written": True,
     }, indent=2, sort_keys=True))
     return 0

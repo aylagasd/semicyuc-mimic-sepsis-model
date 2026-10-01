@@ -23,6 +23,7 @@ class PipelineResourceAudit:
     target_budget_bytes: int
     runtime_matches_profile: bool
     compute_profile_matches: bool
+    all_stages_materialized: bool
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -94,6 +95,7 @@ def audit_pipeline_resources(
     stage_names: list[str] = []
     rss_values: list[int] = []
     swap_values: list[int] = []
+    all_stages_materialized = True
     for item in raw_stages:
         if not isinstance(item, Mapping):
             raise ValueError("Every resource stage must be an object")
@@ -108,6 +110,20 @@ def audit_pipeline_resources(
             raise ValueError(f"Stage {name or 'unknown'} lacks aggregate counts") from exc
         if rows < 0 or parts <= 0:
             blockers.append(f"stage:{name or 'unknown'}:invalid_counts")
+        try:
+            output_bytes_added = int(item["output_bytes_added"])
+            output_bytes = int(item["output_bytes"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Stage {name or 'unknown'} lacks materialization counts"
+            ) from exc
+        if (
+            output_bytes_added <= 0
+            or output_bytes <= 0
+            or output_bytes_added != output_bytes
+        ):
+            all_stages_materialized = False
+            blockers.append(f"stage:{name or 'unknown'}:no_materialization")
         rss = item.get("peak_rss_bytes")
         if rss is None:
             blockers.append(f"stage:{name or 'unknown'}:rss_unavailable")
@@ -138,4 +154,5 @@ def audit_pipeline_resources(
         target_budget_bytes=target_budget_bytes,
         runtime_matches_profile=runtime_matches,
         compute_profile_matches=profile_matches,
+        all_stages_materialized=all_stages_materialized,
     )

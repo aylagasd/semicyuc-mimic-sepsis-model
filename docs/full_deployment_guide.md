@@ -155,6 +155,9 @@ La ejecución actualiza atómicamente
 solo contiene métricas agregadas de recursos y queda disponible incluso si una
 etapa falla. Los lotes sin episodios conservan el esquema Parquet, por lo que
 un lote pequeño no altera ni interrumpe el contrato clínico.
+Una ejecución posterior `--resume` conserva ese informe canónico y escribe
+`resource_report.resume.json` si reutiliza total o parcialmente los artefactos.
+Esto evita que una comprobación rápida sustituya el benchmark de capacidad.
 
 Después de finalizar debe superar la puerta de recursos:
 
@@ -167,7 +170,10 @@ python scripts/validate_pipeline_resources.py \
 La puerta falla cerrada ante etapas ausentes o fallidas, parámetros distintos
 del perfil, RSS superior al presupuesto de 24 GiB, telemetría no disponible o
 swap del proceso. Solo publica métricas agregadas. El uso de disco temporal y
-el swap global se revisan además con las herramientas del sistema.
+el swap global se revisan además con las herramientas del sistema. Cada etapa
+debe haber materializado desde una raíz vacía todos los bytes informados; los
+informes de reanudación no superan esta puerta aunque sus artefactos sean
+íntegros y reutilizables.
 
 En una versión no-demo, este comando exige la puerta `model` y materializa
 solo `development` y `validation`. Los constructores de bajo nivel también
