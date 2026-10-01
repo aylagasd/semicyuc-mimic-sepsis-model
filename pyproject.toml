@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "mimic-sepsis"
 version = "0.1.0"
 description = "Reproducible MIMIC-IV sepsis cohort and modelling utilities"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
   "SQLAlchemy>=2.0,<3",
   "psycopg[binary]>=3.1,<4",

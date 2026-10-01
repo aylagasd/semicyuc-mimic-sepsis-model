@@ -102,7 +102,7 @@ validado para tomar decisiones clínicas.
 
 ## Inicio rápido
 
-Requisitos: Python 3.10 o posterior y acceso autorizado a MIMIC-IV. Las
+Requisitos: Python 3.11 o posterior y acceso autorizado a MIMIC-IV. Las
 credenciales PhysioNet sirven para descarga; PostgreSQL es una instalación
 separada propia o institucional y siempre se abre en modo de solo lectura.
 
@@ -214,7 +214,7 @@ Para validar el módulo sin una base MIMIC-IV real:
 pytest -q
 ```
 
-La misma suite sintética se ejecuta en GitHub Actions con Python 3.10 y 3.13.
+La misma suite sintética se ejecuta en GitHub Actions con Python 3.11 y 3.13.
 La CI no descarga MIMIC-IV, no recibe credenciales y no ejecuta artefactos ni
 notebooks con datos protegidos.
 
