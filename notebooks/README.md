@@ -54,8 +54,15 @@ export XDG_CACHE_HOME="$PWD/.cache"
 eval "$(.tools/micromamba/micromamba shell hook --shell bash \
   --root-prefix .micromamba)"
 micromamba activate ./.micromamba/envs/semicyuc
+python scripts/preflight_analysis_environment.py
 jupyter lab --no-browser
 ```
+
+El preflight no abre datos: informa únicamente versiones y disponibilidad de
+Python, Jupyter, Rscript y los paquetes R/Python que usa la secuencia. Debe
+ejecutarse después de activar el entorno, porque también comprueba que las
+celdas Python heredarán `Rscript` mediante `PATH`. Un código 2 impide iniciar
+la secuencia hasta corregir el entorno.
 
 Para validar un notebook sin interfaz y conservar el original sin outputs:
 

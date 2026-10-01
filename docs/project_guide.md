@@ -226,6 +226,11 @@ Python se usa para datos y modelos. R y `ggplot2` constituyen el estándar de
 las figuras analíticas y publicables. El notebook 07 incluye una comparación
 metodológica puntual con Matplotlib usando exactamente el mismo agregado.
 
+Antes de ejecutar la secuencia se valida el entorno activo con
+`python scripts/preflight_analysis_environment.py`. El control no abre datos y
+falla si faltan Jupyter, Rscript, `ggplot2` o cualquiera de las dependencias
+Python/R empleadas por los notebooks.
+
 ## 8. Reproducción local desde cero
 
 ### 8.1 Entorno
@@ -236,6 +241,7 @@ La forma recomendada es crear el entorno combinado Python/R descrito en
 ```bash
 micromamba create -f environment.yml
 micromamba activate semicyuc-mimic-sepsis
+python scripts/preflight_analysis_environment.py
 ```
 
 Como alternativa exclusivamente Python:

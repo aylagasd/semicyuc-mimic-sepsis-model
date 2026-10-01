@@ -214,14 +214,15 @@ Para validar el módulo sin una base MIMIC-IV real:
 pytest -q
 ```
 
-La misma suite sintética se ejecuta en GitHub Actions con Python 3.11 y 3.13.
+La misma suite sintética se ejecuta en GitHub Actions con Python 3.11, 3.13 y
+3.14.
 La CI no descarga MIMIC-IV, no recibe credenciales y no ejecuta artefactos ni
 notebooks con datos protegidos.
 
 En el equipo de 32 GiB, `scripts/run_full_workflow.py` encadena de forma
 reanudable el preflight del host y de los ficheros, la extracción DuckDB, el
-pipeline por lotes y la puerta de recursos. Puede detenerse en `--through extract` hasta que las decisiones
-clínicas requeridas estén congeladas; véase
+pipeline por lotes y la puerta de recursos. Puede detenerse en `--through
+extract` hasta que las decisiones clínicas requeridas estén congeladas; véase
 [`docs/full_deployment_guide.md`](docs/full_deployment_guide.md).
 
 ## Pasos iniciales de investigación
@@ -261,3 +262,8 @@ ejecutables en `config/`.
 La correspondencia entre decisiones abiertas, dossier de firmas y puerta por
 fase se valida con `python scripts/audit_protocol_governance.py` y también forma
 parte de la suite sintética.
+
+Antes de ejecutar los notebooks, `python
+scripts/preflight_analysis_environment.py` comprueba que el entorno activo
+incluye Python, Jupyter, R, `ggplot2` y el resto de paquetes declarados, sin
+leer datos clínicos.
