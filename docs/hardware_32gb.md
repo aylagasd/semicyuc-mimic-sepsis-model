@@ -54,6 +54,11 @@ perfil.
      --compute-profile config/compute_32gb.json --resume
    ```
 
+   Las etapas 1, 2 y la validación de recursos pueden ejecutarse también con
+   `scripts/run_full_workflow.py`; la guía de despliegue documenta el comando
+   único y cómo detenerse tras `extract` mientras el protocolo no esté
+   congelado.
+
 3. No ejecutar en paralelo etapas que materialicen pandas. El perfil fija como
    máximo dos hilos DuckDB y el pipeline actual es secuencial. El límite de
    memoria, los hilos y el directorio de spill se aplican a SOFA, etiquetas,

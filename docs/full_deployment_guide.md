@@ -135,6 +135,50 @@ Python calcula las ventanas exactas de forma vectorizada. `--batch-size`,
 un benchmark registrado; no deben cambiarse a ciegas durante una ejecución
 científica.
 
+### Recorrido operativo único
+
+Para evitar transcribir opciones distintas entre etapas, el flujo completo se
+puede dirigir con un solo comando. El orquestador reutiliza los scripts
+anteriores; no contiene una segunda implementación del fenotipo:
+
+```bash
+python scripts/run_full_workflow.py /ruta/mimiciv/3.1 \
+  --data-version 3.1 \
+  --work-root /ruta/derivados/run-primary \
+  --temp-dir /ruta/ssd/duckdb \
+  --minimum-free-gb 250 \
+  --through extract \
+  --resume
+```
+
+`--through` acepta `preflight`, `extract`, `pipeline` o `validate`. Mientras la
+puerta clínica/metodológica siga abierta debe usarse como máximo `extract`.
+Solicitar `pipeline` o `validate` para una versión no-demo comprueba primero la
+puerta `model` y se detiene antes incluso de la extracción si alguna decisión
+requerida no está congelada. Una vez firmadas y sincronizadas las decisiones,
+el mismo directorio continúa de forma determinista con:
+
+```bash
+python scripts/run_full_workflow.py /ruta/mimiciv/3.1 \
+  --data-version 3.1 \
+  --work-root /ruta/derivados/run-primary \
+  --temp-dir /ruta/ssd/duckdb \
+  --minimum-free-gb 250 \
+  --through validate \
+  --resume
+```
+
+El perfil suministra el límite DuckDB y el número de hilos tanto a la
+extracción como al pipeline. Los comandos se lanzan sin shell, se interrumpen
+en el primer código de salida no nulo y el resumen final solo enumera etapas y
+estado. El orquestador no admite opciones de materialización del test: ese paso
+deliberadamente excepcional conserva el procedimiento explícito de congelación
+y autorización descrito más abajo.
+
+Una raíz nueva que materializa las cuatro etapas clínicas puede superar
+`validate`. Una recuperación parcial puede completar artefactos válidos, pero
+su telemetría de reanudación no sustituye el benchmark canónico de capacidad.
+
 Las fuentes hospitalarias como `labevents` se extraen una sola vez por ingreso
 hospitalario, aunque la política conserve varias estancias UCI del mismo
 ingreso. El extractor con `extractor_schema_version: 9` incorpora esta regla en

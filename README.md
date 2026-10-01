@@ -218,6 +218,12 @@ La misma suite sintética se ejecuta en GitHub Actions con Python 3.11 y 3.13.
 La CI no descarga MIMIC-IV, no recibe credenciales y no ejecuta artefactos ni
 notebooks con datos protegidos.
 
+En el equipo de 32 GiB, `scripts/run_full_workflow.py` encadena de forma
+reanudable el preflight, la extracción DuckDB, el pipeline por lotes y la puerta
+de recursos. Puede detenerse en `--through extract` hasta que las decisiones
+clínicas requeridas estén congeladas; véase
+[`docs/full_deployment_guide.md`](docs/full_deployment_guide.md).
+
 ## Pasos iniciales de investigación
 
 La secuencia ejecutable 00–13 y los comandos para Jupyter interactivo o
