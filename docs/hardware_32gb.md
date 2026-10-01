@@ -29,6 +29,21 @@ el horizonte primario y las cinco variables preespecificadas, y muestra solo
 recuentos y bytes agregados. Un código de salida 2 impide continuar con ese
 perfil.
 
+Antes incluso de la extracción se valida el equipo:
+
+```bash
+python scripts/preflight_compute_host.py \
+  --work-path /ruta/derivados \
+  --temp-path /ruta/ssd/duckdb \
+  --minimum-work-free-gb 250 \
+  --minimum-temp-free-gb 250
+```
+
+Este control no lee datos clínicos. Exige RAM total y disponible suficiente
+para el presupuesto de 24 GiB, al menos dos procesadores lógicos, permisos de
+escritura y las reservas indicadas. Cuando ambas rutas comparten volumen, las
+reservas se suman.
+
 ## Ajustes operativos
 
 1. Ejecutar la reducción CSV con DuckDB limitado a 8 GB y un directorio
@@ -54,7 +69,7 @@ perfil.
      --compute-profile config/compute_32gb.json --resume
    ```
 
-   Las etapas 1, 2 y la validación de recursos pueden ejecutarse también con
+   El preflight del host, las etapas 1 y 2 y la validación de recursos pueden ejecutarse también con
    `scripts/run_full_workflow.py`; la guía de despliegue documenta el comando
    único y cómo detenerse tras `extract` mientras el protocolo no esté
    congelado.

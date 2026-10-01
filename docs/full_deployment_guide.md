@@ -30,13 +30,27 @@ del repositorio o bajo una ruta ignorada `data/` con permisos restrictivos.
 Antes de leer filas:
 
 ```bash
+python scripts/preflight_compute_host.py \
+  --work-path /ruta/derivados \
+  --temp-path /ruta/disco_temporal/duckdb \
+  --compute-profile config/compute_32gb.json \
+  --minimum-work-free-gb CAPACIDAD_DERIVADOS \
+  --minimum-temp-free-gb CAPACIDAD_TEMPORAL
+
 python scripts/preflight_mimic_files.py /ruta/mimiciv/3.1 \
   --minimum-free-gb CAPACIDAD_RESERVADA
 ```
 
-El preflight solo abre la cabecera comprimida de las 11 tablas requeridas,
-detecta ficheros ausentes, deriva de esquema y espacio libre. Devuelve JSON y
-código 0 únicamente cuando todos los controles pasan.
+El primer preflight no lee MIMIC-IV: contrasta RAM total y disponible, workers,
+permisos y espacio de los volúmenes contra el perfil. Exige que estén libres
+los 24 GiB presupuestados para el proceso; un equipo nominal de 32 GB no tiene
+que reportar exactamente 32 GiB físicos. Si trabajo y temporales comparten
+sistema de archivos, exige la suma de ambas reservas para no contar dos veces
+el mismo espacio.
+
+El segundo solo abre la cabecera comprimida de las 11 tablas requeridas,
+detecta ficheros ausentes, deriva de esquema y espacio libre. Ambos devuelven
+JSON agregado y código 0 únicamente cuando todos los controles pasan.
 
 Superado el preflight, la reducción fuera de memoria se ejecuta con:
 
@@ -148,7 +162,8 @@ python scripts/run_full_workflow.py /ruta/mimiciv/3.1 \
   --data-version 3.1 \
   --work-root /ruta/derivados/run-primary \
   --temp-dir /ruta/ssd/duckdb \
-  --minimum-free-gb 250 \
+  --minimum-work-free-gb 250 \
+  --minimum-temp-free-gb 250 \
   --through extract \
   --resume
 ```
@@ -165,15 +180,20 @@ python scripts/run_full_workflow.py /ruta/mimiciv/3.1 \
   --data-version 3.1 \
   --work-root /ruta/derivados/run-primary \
   --temp-dir /ruta/ssd/duckdb \
-  --minimum-free-gb 250 \
+  --minimum-work-free-gb 250 \
+  --minimum-temp-free-gb 250 \
   --through validate \
   --resume
 ```
 
 El perfil suministra el límite DuckDB y el número de hilos tanto a la
-extracción como al pipeline. Los comandos se lanzan sin shell, se interrumpen
-en el primer código de salida no nulo y el resumen final solo enumera etapas y
-estado. El orquestador no admite opciones de materialización del test: ese paso
+extracción como al pipeline. Antes de abrir las cabeceras de MIMIC ejecuta el
+preflight del host; `--minimum-temp-free-gb` usa por defecto el valor de
+`--minimum-work-free-gb`. La reserva opcional del volumen fuente se controla
+separadamente con `--minimum-source-free-gb`; el alias anterior
+`--minimum-free-gb` sigue significando reserva de trabajo. Los comandos se lanzan sin shell, se interrumpen en el
+primer código de salida no nulo y el resumen final solo enumera etapas y estado.
+El orquestador no admite opciones de materialización del test: ese paso
 deliberadamente excepcional conserva el procedimiento explícito de congelación
 y autorización descrito más abajo.
 

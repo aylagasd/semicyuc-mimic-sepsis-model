@@ -27,14 +27,20 @@ def test_extract_plan_uses_profile_and_stops_before_clinical_pipeline(tmp_path):
         work_root=tmp_path / "work",
         temp_dir=tmp_path / "temp",
         compute_profile=profile,
-        minimum_free_gb=100,
+        minimum_work_free_gb=100,
+        minimum_temp_free_gb=50,
+        minimum_source_free_gb=10,
         minimum_age=18,
         stay_policy="first_per_admission",
         through="extract",
         resume=True,
     )
-    assert [command.stage for command in commands] == ["preflight", "extract"]
-    extract = commands[1].argv
+    assert [command.stage for command in commands] == [
+        "host_preflight", "data_preflight", "extract",
+    ]
+    assert "50" in commands[0].argv
+    assert commands[1].argv[-1] == "10"
+    extract = commands[2].argv
     assert extract[extract.index("--memory-limit") + 1] == "8GB"
     assert extract[extract.index("--threads") + 1] == "2"
     assert extract[-1] == "--resume"
@@ -51,14 +57,19 @@ def test_validate_plan_runs_all_stages_and_targets_canonical_report(tmp_path):
         work_root=tmp_path / "work",
         temp_dir=tmp_path / "temp",
         compute_profile=profile,
-        minimum_free_gb=0,
+        minimum_work_free_gb=0,
+        minimum_temp_free_gb=0,
+        minimum_source_free_gb=0,
         minimum_age=18,
         stay_policy="first_per_admission",
         through="validate",
         resume=False,
     )
     assert [command.stage for command in commands] == list(
-        ("preflight", "extract", "pipeline", "validate")
+        (
+            "host_preflight", "data_preflight", "extract", "pipeline",
+            "validate",
+        )
     )
     assert str(tmp_path / "work" / "full_pipeline" / "resource_report.json") in (
         commands[-1].argv
@@ -68,7 +79,8 @@ def test_validate_plan_runs_all_stages_and_targets_canonical_report(tmp_path):
 
 def test_runner_stops_at_first_failure_without_starting_later_stages():
     commands = (
-        WorkflowCommand("preflight", ("python", "preflight.py")),
+        WorkflowCommand("host_preflight", ("python", "host.py")),
+        WorkflowCommand("data_preflight", ("python", "preflight.py")),
         WorkflowCommand("extract", ("python", "extract.py")),
         WorkflowCommand("pipeline", ("python", "pipeline.py")),
     )
@@ -81,9 +93,11 @@ def test_runner_stops_at_first_failure_without_starting_later_stages():
     with pytest.raises(WorkflowStageError) as caught:
         run_workflow_commands(commands, runner=runner)
     assert caught.value.stage == "extract"
-    assert caught.value.completed == ("preflight",)
+    assert caught.value.completed == ("host_preflight", "data_preflight")
     assert caught.value.exit_code == 7
-    assert [argv[0][1] for argv in called] == ["preflight.py", "extract.py"]
+    assert [argv[0][1] for argv in called] == [
+        "host.py", "preflight.py", "extract.py",
+    ]
 
 
 @pytest.mark.parametrize("minimum_free_gb", [-1, -0.1])
@@ -99,7 +113,9 @@ def test_plan_rejects_negative_disk_reserve(tmp_path, minimum_free_gb):
             work_root=tmp_path / "work",
             temp_dir=tmp_path / "temp",
             compute_profile=profile,
-            minimum_free_gb=minimum_free_gb,
+            minimum_work_free_gb=minimum_free_gb,
+            minimum_temp_free_gb=0,
+            minimum_source_free_gb=0,
             minimum_age=18,
             stay_policy="first_per_admission",
             through="preflight",

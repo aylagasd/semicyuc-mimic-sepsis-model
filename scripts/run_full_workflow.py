@@ -52,7 +52,9 @@ def build_workflow_commands(
     work_root: Path,
     temp_dir: Path,
     compute_profile: Path,
-    minimum_free_gb: float,
+    minimum_work_free_gb: float,
+    minimum_temp_free_gb: float,
+    minimum_source_free_gb: float,
     minimum_age: int,
     stay_policy: str,
     through: str,
@@ -66,20 +68,37 @@ def build_workflow_commands(
         raise ValueError("Unsupported compute profile")
     memory_limit = str(profile["duckdb_memory_limit"])
     threads = int(profile["maximum_parallel_workers"])
-    if minimum_free_gb < 0:
-        raise ValueError("minimum_free_gb must be non-negative")
+    if min(
+        minimum_work_free_gb,
+        minimum_temp_free_gb,
+        minimum_source_free_gb,
+    ) < 0:
+        raise ValueError("minimum free disk requirements must be non-negative")
     if minimum_age < 18:
         raise ValueError("minimum_age must be at least 18")
 
     scripts = repo / "scripts"
     extract_root = work_root / "full_extract"
     pipeline_root = work_root / "full_pipeline"
-    commands = [WorkflowCommand("preflight", (
+    commands = [WorkflowCommand("host_preflight", (
+        python,
+        str(scripts / "preflight_compute_host.py"),
+        "--work-path",
+        str(work_root),
+        "--temp-path",
+        str(temp_dir),
+        "--compute-profile",
+        str(compute_profile),
+        "--minimum-work-free-gb",
+        str(minimum_work_free_gb),
+        "--minimum-temp-free-gb",
+        str(minimum_temp_free_gb),
+    )), WorkflowCommand("data_preflight", (
         python,
         str(scripts / "preflight_mimic_files.py"),
         str(data_dir),
         "--minimum-free-gb",
-        str(minimum_free_gb),
+        str(minimum_source_free_gb),
     ))]
     if STAGES.index(through) >= STAGES.index("extract"):
         argv = [
@@ -157,7 +176,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--protocol-status", type=Path, default=Path("config/protocol_status.json")
     )
-    parser.add_argument("--minimum-free-gb", type=float, default=0)
+    parser.add_argument(
+        "--minimum-work-free-gb", "--minimum-free-gb",
+        dest="minimum_work_free_gb", type=float, default=0,
+        help="Derived-data disk reserve (--minimum-free-gb is a compatible alias).",
+    )
+    parser.add_argument(
+        "--minimum-temp-free-gb", type=float,
+        help="Temporary-disk reserve; defaults to --minimum-work-free-gb.",
+    )
+    parser.add_argument(
+        "--minimum-source-free-gb", type=float, default=0,
+        help="Optional reserve on the read-only source-data filesystem.",
+    )
     parser.add_argument("--minimum-age", type=int, default=18)
     parser.add_argument(
         "--stay-policy",
@@ -201,7 +232,13 @@ def main() -> int:
             work_root=work_root,
             temp_dir=temp_dir,
             compute_profile=profile_path,
-            minimum_free_gb=args.minimum_free_gb,
+            minimum_work_free_gb=args.minimum_work_free_gb,
+            minimum_temp_free_gb=(
+                args.minimum_work_free_gb
+                if args.minimum_temp_free_gb is None
+                else args.minimum_temp_free_gb
+            ),
+            minimum_source_free_gb=args.minimum_source_free_gb,
             minimum_age=args.minimum_age,
             stay_policy=args.stay_policy,
             through=args.through,
