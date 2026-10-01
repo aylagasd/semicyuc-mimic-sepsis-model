@@ -1,6 +1,8 @@
 # semicyuc-mimic-sepsis-model
 # SEMICYUC – MIMIC-IV Sepsis Prediction Model
 
+[![Synthetic test suite](https://github.com/aylagasd/semicyuc-mimic-sepsis-model/actions/workflows/tests.yml/badge.svg)](https://github.com/aylagasd/semicyuc-mimic-sepsis-model/actions/workflows/tests.yml)
+
 Proyecto de investigación orientado al desarrollo de un modelo predictivo de sepsis y shock séptico en UCI utilizando la base de datos MIMIC-IV.
 
 Para comprender el proyecto completo y reproducir su estado actual, comience
@@ -211,6 +213,10 @@ Para validar el módulo sin una base MIMIC-IV real:
 ```bash
 pytest -q
 ```
+
+La misma suite sintética se ejecuta en GitHub Actions con Python 3.10 y 3.13.
+La CI no descarga MIMIC-IV, no recibe credenciales y no ejecuta artefactos ni
+notebooks con datos protegidos.
 
 ## Pasos iniciales de investigación
 
