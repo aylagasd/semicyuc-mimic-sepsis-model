@@ -258,3 +258,6 @@ Las decisiones metodológicas y su estado se indexan en
 [`docs/decision_register.md`](docs/decision_register.md); las definiciones
 clínicas detalladas permanecen en `docs/sepsis_definition.md` y los parámetros
 ejecutables en `config/`.
+La correspondencia entre decisiones abiertas, dossier de firmas y puerta por
+fase se valida con `python scripts/audit_protocol_governance.py` y también forma
+parte de la suite sintética.

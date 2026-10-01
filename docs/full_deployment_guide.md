@@ -70,6 +70,7 @@ Antes de construir el fenotipo completo debe pasar además la puerta de
 protocolo:
 
 ```bash
+python scripts/audit_protocol_governance.py
 python scripts/preflight_protocol.py phenotype
 ```
 
@@ -78,6 +79,7 @@ devuelve código 2 y enumera únicamente IDs/estados. El orquestador aplica esta
 misma puerta automáticamente para cualquier versión distinta del Demo 2.2.
 Una aprobación clínica debe actualizar en el mismo commit el acta, el registro
 de decisiones y `config/protocol_status.json`; no basta editar solo el JSON.
+La primera auditoría impide precisamente que esos tres documentos diverjan.
 
 ## 3. PostgreSQL institucional o propio
 

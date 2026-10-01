@@ -16,6 +16,17 @@ El estado ejecutable se refleja en `config/protocol_status.json`. El preflight
 de fase no sustituye esta acta: solo impide que una decisión no firmada pase
 silenciosamente al análisis completo.
 
+La coherencia entre esta tabla, el registro y la puerta ejecutable se comprueba
+sin leer datos clínicos:
+
+```bash
+python scripts/audit_protocol_governance.py
+```
+
+El comando exige que toda decisión abierta del registro aparezca aquí, que su
+estado coincida con `protocol_status.json` y que las fases sean acumulativas
+(`phenotype` ⊆ `model` ⊆ `test`). No firma ni cambia estados.
+
 Los agregados reproducibles para apoyar esta revisión se generan con
 `scripts/audit_phenotype_freeze.py`; su contrato, denominadores y límites están
 documentados en [`phenotype_freeze_evidence.md`](phenotype_freeze_evidence.md).
