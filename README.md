@@ -224,6 +224,9 @@ reanudable el preflight del host y de los ficheros, la extracción DuckDB, el
 pipeline por lotes y la puerta de recursos. Puede detenerse en `--through
 extract` hasta que las decisiones clínicas requeridas estén congeladas; véase
 [`docs/full_deployment_guide.md`](docs/full_deployment_guide.md).
+La migración desde la Raspberry a un host x86_64, incluida la separación entre
+código, datos protegidos y entornos recreables, se describe en
+[`docs/migration_guide.md`](docs/migration_guide.md).
 
 ## Pasos iniciales de investigación
 

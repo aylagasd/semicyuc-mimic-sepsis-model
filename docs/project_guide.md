@@ -453,6 +453,9 @@ Para detalles de ingeniería de SOFA y almacenamiento:
 [`mimic_code_sofa_plan.md`](mimic_code_sofa_plan.md),
 [`sofa_demo_inventory.md`](sofa_demo_inventory.md) y
 [`derived_artifacts.md`](derived_artifacts.md).
+Para trasladar el proyecto a un equipo de cálculo sin copiar credenciales,
+entornos ARM ni datos mediante Git, véase
+[`migration_guide.md`](migration_guide.md).
 
 ## 15. Glosario breve
 
