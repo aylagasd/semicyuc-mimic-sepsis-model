@@ -12,7 +12,7 @@ from mimic_sepsis.notebook_runner import discover_notebooks, execute_notebooks
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start", type=int, default=0)
-    parser.add_argument("--end", type=int, default=13)
+    parser.add_argument("--end", type=int, default=15)
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument(
         "--output-dir", type=Path,

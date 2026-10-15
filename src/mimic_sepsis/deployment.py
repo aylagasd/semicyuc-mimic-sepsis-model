@@ -41,7 +41,8 @@ REQUIRED_FILE_COLUMNS: Mapping[str, tuple[str, ...]] = {
     "hosp/patients.csv.gz": ("subject_id", "gender", "anchor_age", "anchor_year"),
     "hosp/admissions.csv.gz": (
         "subject_id", "hadm_id", "admission_type", "admission_location",
-        "insurance", "race",
+        "insurance", "race", "admittime", "dischtime", "discharge_location",
+        "hospital_expire_flag",
     ),
     "hosp/labevents.csv.gz": (
         "subject_id", "hadm_id", "itemid", "charttime", "storetime", "valuenum"

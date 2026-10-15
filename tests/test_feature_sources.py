@@ -38,3 +38,16 @@ def test_lab_without_storetime_is_not_backdated_into_predictors():
         "intime": ["2100-01-01"], "outtime": ["2100-01-02"],
     })
     assert normalize_lab_feature_events(labs, stays).empty
+
+
+def test_lab_stored_before_specimen_is_not_backdated_into_predictors():
+    labs = pd.DataFrame({
+        "subject_id": [1], "hadm_id": [10], "itemid": [50912],
+        "charttime": ["2100-01-01 05:00"],
+        "storetime": ["2100-01-01 04:59"], "valuenum": [1.2],
+    })
+    stays = pd.DataFrame({
+        "subject_id": [1], "hadm_id": [10], "stay_id": [100],
+        "intime": ["2100-01-01"], "outtime": ["2100-01-02"],
+    })
+    assert normalize_lab_feature_events(labs, stays).empty

@@ -176,7 +176,7 @@ def load_partitioned_pretest_config(
     feature_columns: Sequence[str] | None = None,
     horizon_hours: int | None = None,
 ) -> PretestInputBundle:
-    """Load a local path-only input specification for notebook 13."""
+    """Load a local path-only input specification for notebook 15."""
     config_path = Path(path)
     try:
         value = json.loads(config_path.read_text(encoding="utf-8"))

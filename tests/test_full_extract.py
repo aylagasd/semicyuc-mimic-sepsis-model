@@ -76,7 +76,7 @@ def test_resume_rebuilds_manifest_from_obsolete_extractor_schema(tmp_path):
         rebuilt = extractor._write(
             connection, "sample", "SELECT 2 AS value", resume=True
         )
-        assert rebuilt.extractor_schema_version == 9
+        assert rebuilt.extractor_schema_version == 10
         assert connection.execute(
             "SELECT value FROM read_parquet(?)",
             [str(extractor.output_dir / "sample.parquet")],
@@ -99,7 +99,7 @@ def test_manifest_does_not_contain_source_path(tmp_path):
         "artifact", "columns", "config_sha256", "data_version",
         "extractor_schema_version", "rows", "sha256",
     }
-    assert raw["extractor_schema_version"] == 9
+    assert raw["extractor_schema_version"] == 10
     assert str(extractor.data_dir) not in json.dumps(raw)
 
 

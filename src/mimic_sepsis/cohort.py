@@ -27,6 +27,7 @@ class CohortResult:
 
 PATIENT_AUDIT_COLUMNS = ("gender",)
 ADMISSION_AUDIT_COLUMNS = (
+    "admittime", "dischtime", "discharge_location", "hospital_expire_flag",
     "admission_type", "admission_location", "insurance", "race",
 )
 

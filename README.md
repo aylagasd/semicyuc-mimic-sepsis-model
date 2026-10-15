@@ -227,7 +227,7 @@ extract` hasta que las decisiones clínicas requeridas estén congeladas; véase
 
 ## Pasos iniciales de investigación
 
-La secuencia ejecutable 00–13 y los comandos para Jupyter interactivo o
+La secuencia ejecutable 00–15 y los comandos para Jupyter interactivo o
 validación sin interfaz están en
 [`notebooks/README.md`](notebooks/README.md).
 

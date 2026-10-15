@@ -203,9 +203,11 @@ su telemetría de reanudación no sustituye el benchmark canónico de capacidad.
 
 Las fuentes hospitalarias como `labevents` se extraen una sola vez por ingreso
 hospitalario, aunque la política conserve varias estancias UCI del mismo
-ingreso. El extractor con `extractor_schema_version: 9` incorpora esta regla en
-su hash: al reanudar una extracción antigua, los derivados incompatibles se
-reconstruyen en lugar de reutilizarse. El pipeline posterior exige además esa
+ingreso. El extractor con `extractor_schema_version: 10` incorpora esta regla y
+conserva los descriptores hospitalarios necesarios para mortalidad, destino al
+alta y duración del ingreso. Su hash hace que, al reanudar una extracción
+antigua, los derivados incompatibles se
+reconstruyan en lugar de reutilizarse. El pipeline posterior exige además esa
 versión en cada manifiesto y contrasta columnas y filas físicas; por tanto, una
 extracción antigua no puede saltarse la reconstrucción invocando directamente
 `build_full_pipeline_chunked.py`.
@@ -266,7 +268,7 @@ La especificación congelada se valida contra
 `config/model_freeze.example.json`: debe fijar commit y run de origen, outcome,
 horizonte, variables, modelo y parámetros, calibración, umbrales operativos,
 estado de decisiones y hash del informe agregado de validation.
-Ese informe se genera mediante el notebook 13 y se valida como un conjunto de
+Ese informe se genera mediante el notebook 15 y se valida como un conjunto de
 tablas exclusivamente agregadas; su manifiesto
 `aggregate_report.manifest.json` contiene el SHA-256 que debe copiarse al
 documento de congelación.
@@ -279,7 +281,7 @@ comprobarse fuera del notebook, sin mostrar filas clínicas:
 python scripts/validate_pretest_report.py /ruta/al/informe
 ```
 
-Para ejecutar el notebook 13 sobre las salidas particionadas, cree la
+Para ejecutar el notebook 15 sobre las salidas particionadas, cree la
 configuración local a partir de `config/pretest_source.example.json`. Debe
 apuntar al extracto reducido y a los run IDs concretos de landmarks y features;
 el cargador valida todos los checksums, versiones, metadatos y la separación de
@@ -289,7 +291,7 @@ pacientes antes de materializar development/validation en memoria:
 cp config/pretest_source.example.json config/pretest_source.local.json
 export SEMICYUC_PRETEST_SOURCE_CONFIG=config/pretest_source.local.json
 python scripts/preflight_pretest_memory.py config/pretest_source.local.json
-jupyter lab notebooks/13_final_report.ipynb
+jupyter lab notebooks/15_final_report.ipynb
 ```
 
 El archivo local está ignorado por Git. No admite una partición test y no debe

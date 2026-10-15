@@ -216,11 +216,13 @@ manifiesto canónico es [`notebooks/README.md`](../notebooks/README.md).
 | 06 | Disponibilidad de fuentes y umbrales SOFA. |
 | 07 | SOFA horario, Sepsis-3 y resultados agregados. |
 | 08 | Auditoría agregada del fenotipo y sensibilidad recalculada con `sofa_complete`. |
-| 09 | Landmarks, particiones, cobertura y características leakage-safe. |
-| 10 | Referencias de prevalencia y regresión clínica con validación agrupada. |
-| 11 | Comparación pareada e intervalos por bootstrap de pacientes completos. |
-| 12 | Sensibilidades de cohorte, horizonte y lookback. |
-| 13 | Informe pre-test: modelos, utilidad, subgrupos, missingness y figuras reproducibles con `ggplot2`. |
+| 09 | Descriptivo clínico agregado de cohorte, desenlaces y temporalidad. |
+| 10 | Calidad de fuentes, cobertura, distribuciones y completitud SOFA. |
+| 11 | Landmarks, particiones, cobertura y características leakage-safe. |
+| 12 | Referencias de prevalencia y regresión clínica con validación agrupada. |
+| 13 | Comparación pareada e intervalos por bootstrap de pacientes completos. |
+| 14 | Sensibilidades de cohorte, horizonte y lookback. |
+| 15 | Informe pre-test: modelos, utilidad, subgrupos, missingness y figuras reproducibles con `ggplot2`. |
 
 Python se usa para datos y modelos. R y `ggplot2` constituyen el estándar de
 las figuras analíticas y publicables. El notebook 07 incluye una comparación
@@ -395,7 +397,7 @@ Los comandos `validate_pretest_report.py` y `prepare_model_freeze.py` permiten
 verificar esa evidencia y enumerar todos los bloqueos restantes. El segundo
 solo genera un borrador y no puede autoautorizar la apertura del test.
 
-En el servidor completo, el notebook 13 recibe las rutas locales mediante
+En el servidor completo, el notebook 15 recibe las rutas locales mediante
 `SEMICYUC_PRETEST_SOURCE_CONFIG`. El cargador acepta exclusivamente los
 artefactos particionados de development y validation, comprueba hashes y
 rechaza cualquier solapamiento de pacientes antes del modelado.
@@ -444,7 +446,7 @@ Una revisión externa puede seguir este orden:
 4. [`sepsis_definition.md`](sepsis_definition.md);
 5. [`modeling_strategy.md`](modeling_strategy.md);
 6. [`variable_dictionary.md`](variable_dictionary.md);
-7. [`notebooks/README.md`](../notebooks/README.md) y notebooks 00–13;
+7. [`notebooks/README.md`](../notebooks/README.md) y notebooks 00–15;
 8. tests correspondientes antes de revisar la implementación clínica.
 
 Para detalles de ingeniería de SOFA y almacenamiento:

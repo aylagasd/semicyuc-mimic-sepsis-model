@@ -29,7 +29,7 @@ LABEVENT_ITEMIDS = frozenset(LAB_ITEMS) | frozenset(LAB_COMPONENTS) | {
     PAO2_ITEMID,
 } | frozenset(LACTATE_ITEMIDS)
 INPUTEVENT_ITEMIDS = frozenset(VASOACTIVE_ITEMS) | frozenset(VASOPRESSOR_ITEMS)
-EXTRACTOR_SCHEMA_VERSION = 9
+EXTRACTOR_SCHEMA_VERSION = 10
 
 
 def _labevents_reduced_query() -> str:
@@ -205,7 +205,9 @@ class FullCSVExtractor:
             connection.execute(f"""
                 CREATE TEMP TABLE cohort_evaluated AS
                 SELECT i.subject_id, i.hadm_id, i.stay_id, i.intime, i.outtime,
-                       i.first_careunit, p.gender, a.admission_type,
+                       i.first_careunit, p.gender, a.admittime, a.dischtime,
+                       a.discharge_location, a.hospital_expire_flag,
+                       a.admission_type,
                        a.admission_location, a.insurance, a.race,
                        p.anchor_age + year(i.intime) - p.anchor_year AS age_at_icu,
                        CASE
@@ -239,8 +241,11 @@ class FullCSVExtractor:
                 SELECT subject_id, hadm_id, stay_id,
                        cast(intime AS TIMESTAMP_NS) AS intime,
                        cast(outtime AS TIMESTAMP_NS) AS outtime, age_at_icu,
-                       first_careunit, gender, admission_type, admission_location,
-                       insurance, race
+                       first_careunit, gender,
+                       cast(admittime AS TIMESTAMP_NS) AS admittime,
+                       cast(dischtime AS TIMESTAMP_NS) AS dischtime,
+                       discharge_location, hospital_expire_flag,
+                       admission_type, admission_location, insurance, race
                 FROM cohort_ranked WHERE stay_rank=1
             """)
             manifests = [self._write(
@@ -255,6 +260,9 @@ class FullCSVExtractor:
                           cast(e.intime AS TIMESTAMP_NS) AS intime,
                           cast(e.outtime AS TIMESTAMP_NS) AS outtime,
                           e.age_at_icu, e.first_careunit, e.gender,
+                          cast(e.admittime AS TIMESTAMP_NS) AS admittime,
+                          cast(e.dischtime AS TIMESTAMP_NS) AS dischtime,
+                          e.discharge_location, e.hospital_expire_flag,
                           e.admission_type, e.admission_location, e.insurance,
                           e.race, r.stay_rank, coalesce(
                             e.initial_exclusion_reason,

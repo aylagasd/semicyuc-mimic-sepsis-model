@@ -68,7 +68,8 @@ def normalize_lab_feature_events(
 
     A laboratory value is attributed to the ICU stay containing its specimen
     ``charttime``. Its predictor ``event_time`` is the later database
-    ``storetime``; absent store times are excluded rather than backdated.
+    ``storetime``; absent store times or impossible records stored before the
+    specimen time are excluded rather than backdated.
     """
     _require(
         labevents,
@@ -89,7 +90,10 @@ def normalize_lab_feature_events(
     for itemid, (_, low, high) in LAB_ITEMS.items():
         valid |= labs["itemid"].eq(itemid) & labs["value"].between(low, high)
     labs = labs.loc[
-        valid & labs["specimen_time"].notna() & labs["event_time"].notna()
+        valid
+        & labs["specimen_time"].notna()
+        & labs["event_time"].notna()
+        & labs["event_time"].ge(labs["specimen_time"])
     ].copy()
     stays = icustays[["subject_id", "hadm_id", "stay_id", "intime", "outtime"]].copy()
     stays["intime"] = pd.to_datetime(stays["intime"], errors="coerce", format="mixed")

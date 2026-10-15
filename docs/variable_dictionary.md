@@ -23,7 +23,8 @@ that file must not be assumed to exist in the modeling matrix.
 All implemented definitions are reproducible through the Python extraction and
 feature-engineering modules. Vital signs use `charttime`. Laboratory values
 are linked to the ICU stay using specimen `charttime` but become predictors
-only at `storetime`. Aggregation windows are left-closed and right-open:
+only at `storetime`; records without it or with `storetime < charttime` are
+excluded instead of backdated. Aggregation windows are left-closed and right-open:
 `[L-W,L)`, so a value at the landmark is excluded.
 
 ---
@@ -332,4 +333,3 @@ Final modeling dataset columns:
 # Current Version
 
 v0.2 – Feature Definition Phase
-

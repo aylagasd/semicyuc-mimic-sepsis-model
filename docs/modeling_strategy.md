@@ -22,7 +22,7 @@ The index `L` is not selected retrospectively relative to onset for controls. Ca
 
 ## 3. Predictors and feature timing
 
-Candidate features are defined in the versioned variable dictionary. For repeated measurements, compute count, missing indicator, last, minimum, maximum, mean, sample standard deviation, slope and time since last measurement over prespecified windows where clinically meaningful. The initial implemented matrix is declared in `config/features.json`. Laboratory values become available at `storetime`, not retrospectively at specimen `charttime`. Normalize units before aggregation and clip/winsorize only using training-set rules.
+Candidate features are defined in the versioned variable dictionary. For repeated measurements, compute count, missing indicator, last, minimum, maximum, mean, sample standard deviation, slope and time since last measurement over prespecified windows where clinically meaningful. The initial implemented matrix is declared in `config/features.json`. Laboratory values become available at `storetime`, not retrospectively at specimen `charttime`; missing availability times and records stored before their specimen time are excluded. Normalize units before aggregation and clip/winsorize only using training-set rules.
 
 SOFA and its components may be evaluated in an explicit secondary model but are excluded from the parsimonious primary model if their inclusion makes the endpoint tautological. Treatment variables require special scrutiny because they can encode clinician recognition rather than underlying physiology.
 
@@ -126,7 +126,7 @@ Decision-curve analysis across prespecified plausible threshold probabilities is
 La rejilla exploratoria ejecutable está en `config/evaluation.json`. No equivale
 a umbrales operativos: esa lista permanece vacía hasta aprobar una acción
 clínica. La convención binaria es `probabilidad >= umbral`; calibración y
-decision-curve se muestran en el notebook 13 sin acceso al test. La misma tabla
+decision-curve se muestran en el notebook 15 sin acceso al test. La misma tabla
 agregada informa alertas por 100 días-paciente observados, fracción de landmarks
 bajo alerta, episodios separados, pacientes/estancias alertados y mediana de
 anticipación solo entre eventos alertados dentro del horizonte evaluado; los

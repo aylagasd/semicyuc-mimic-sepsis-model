@@ -81,7 +81,7 @@ reservas se suman.
 4. Mantener el directorio temporal y los derivados en SSD. La capacidad libre
    se valida con `preflight_mimic_files.py`; no se presupone a partir de la RAM.
 5. Crear `config/pretest_source.local.json`, ejecutar el preflight de memoria y
-   solo entonces abrir `notebooks/13_final_report.ipynb`.
+   solo entonces abrir `notebooks/15_final_report.ipynb`.
 
 ## Optimizaciones implementadas
 

@@ -13,7 +13,7 @@ def discover_notebooks(
     notebook_dir: Path,
     *,
     start: int = 0,
-    end: int = 13,
+    end: int = 15,
 ) -> tuple[Path, ...]:
     """Return a complete, uniquely numbered inclusive notebook range."""
     if start < 0 or end < start or end > 99:

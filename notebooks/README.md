@@ -17,13 +17,15 @@ entradas, salidas, versión de datos, semilla y criterios de finalización.
 | 06 | `06_sofa_readiness.ipynb` | Python | Auditar cobertura, umbrales y riesgos del SOFA dinámico. |
 | 07 | `07_sofa_and_outcomes.ipynb` | Python + R | Validar SOFA y etiquetas Sepsis-3, auditar resultados agregados y comparar `matplotlib` con `ggplot2`. |
 | 08 | `08_initial_analysis.ipynb` | Python + R | Auditoría agregada de multiplicidad, cobertura y sensibilidad `sofa_complete`; figuras con `ggplot2`. |
-| 09 | `09_feature_engineering.ipynb` | Python + R | Auditar landmarks, particiones y predictores temporales; comparar Matplotlib con `ggplot2` sin abrir el test. |
-| 10 | `10_model_development.ipynb` | Python + R | Ensamblar el horizonte primario y validar referencias de prevalencia/regresión clínica sin abrir el test. |
-| 11 | `11_model_evaluation.ipynb` | Python + R | Evaluación interna y comparación pareada con bootstrap por paciente; figura `ggplot2`, sin abrir test. |
-| 12 | `12_sensitivity_and_subgroups.ipynb` | Python + R | Sensibilidades de cohorte, evidencia antimicrobiana, concurrencia del proxy de shock, horizonte y lookback; contrato de subgrupos con supresión por privacidad. |
-| 13 | `13_final_report.ipynb` | Python + R | Informe pre-test; admite demo monolítico o fuente particionada development/validation explícita. En esta última proyecta horizonte/variables primarios y aplica el preflight de 32 GiB antes de modelos, utilidad, subgrupos, missingness, readiness de calibración y figuras `ggplot2`. |
+| 09 | `09_clinical_descriptive.ipynb` | Python + R | Describir cohorte, estancia, mortalidad, carga y cronología de outcomes en development/validation, con supresión de celdas pequeñas. |
+| 10 | `10_data_quality.ipynb` | Python + R | Auditar procedencia, rechazo, cobertura y plausibilidad de predictores, además de completitud SOFA, sin abrir el test. |
+| 11 | `11_feature_engineering.ipynb` | Python + R | Auditar landmarks, particiones y predictores temporales; comparar Matplotlib con `ggplot2` sin abrir el test. |
+| 12 | `12_model_development.ipynb` | Python + R | Ensamblar el horizonte primario y validar referencias de prevalencia/regresión clínica sin abrir el test. |
+| 13 | `13_model_evaluation.ipynb` | Python + R | Evaluación interna y comparación pareada con bootstrap por paciente; figura `ggplot2`, sin abrir test. |
+| 14 | `14_sensitivity_and_subgroups.ipynb` | Python + R | Sensibilidades de cohorte, evidencia antimicrobiana, concurrencia del proxy de shock, horizonte y lookback; contrato de subgrupos con supresión por privacidad. |
+| 15 | `15_final_report.ipynb` | Python + R | Informe pre-test; admite demo monolítico o fuente particionada development/validation explícita. En esta última proyecta horizonte/variables primarios y aplica el preflight de 32 GiB antes de modelos, utilidad, subgrupos, missingness, readiness de calibración y figuras `ggplot2`. |
 
-La secuencia 00–13 está implementada. El paso 13 sigue siendo un informe previo
+La secuencia 00–15 está implementada. El paso 15 sigue siendo un informe previo
 al test hasta ejecutar MIMIC-IV completo y congelar el modelo.
 
 ## Contrato de ejecución
@@ -73,7 +75,7 @@ XDG_CACHE_HOME=.cache .tools/micromamba/micromamba run \
   jupyter nbconvert --to notebook --execute \
   --ExecutePreprocessor.timeout=600 \
   --output-dir data/derived/notebook_runs \
-  notebooks/12_sensitivity_and_subgroups.ipynb
+  notebooks/14_sensitivity_and_subgroups.ipynb
 ```
 
 La secuencia completa se ejecuta desde la raíz del repositorio mediante el
@@ -86,7 +88,7 @@ python scripts/execute_notebooks.py
 ```
 
 Para reanudar un tramo ya diagnosticado puede usarse, por ejemplo,
-`--start 7 --end 13`; no es un mecanismo de dependencia y presupone que sus
+`--start 7 --end 15`; no es un mecanismo de dependencia y presupone que sus
 entradas ya existen. El ejecutor exige una secuencia sin huecos, confina el
 estado escribible de Jupyter/IPython a directorios ignorados del proyecto y se
 detiene en el primer error. `data/derived/notebook_runs/` está

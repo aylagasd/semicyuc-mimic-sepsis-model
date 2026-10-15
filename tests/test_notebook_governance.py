@@ -5,11 +5,13 @@ import pytest
 
 
 NOTEBOOKS = (
-    "09_feature_engineering.ipynb",
-    "10_model_development.ipynb",
-    "11_model_evaluation.ipynb",
-    "12_sensitivity_and_subgroups.ipynb",
-    "13_final_report.ipynb",
+    "09_clinical_descriptive.ipynb",
+    "10_data_quality.ipynb",
+    "11_feature_engineering.ipynb",
+    "12_model_development.ipynb",
+    "13_model_evaluation.ipynb",
+    "14_sensitivity_and_subgroups.ipynb",
+    "15_final_report.ipynb",
 )
 FORBIDDEN_TEST_ARTIFACTS = (
     "sepsis3_test_landmarks",

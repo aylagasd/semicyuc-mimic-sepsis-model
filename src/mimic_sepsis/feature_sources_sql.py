@@ -125,6 +125,7 @@ def read_normalized_feature_events_sql(
               FROM lab_candidates
               WHERE specimen_time IS NOT NULL
                 AND event_time IS NOT NULL
+                AND event_time >= specimen_time
                 AND value BETWEEN lower_bound AND upper_bound
                 AND specimen_time >= intime
                 AND specimen_time < outtime
